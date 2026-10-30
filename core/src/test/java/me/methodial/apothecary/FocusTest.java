@@ -112,6 +112,24 @@ class FocusTest {
     }
 
     @Test
+    void arrowsPreferElementsInLineOverCloserDiagonalOnes() {
+        // A sidebar entry on the left; on the right, a wide search field above a card, as in a shop catalog.
+        Node side = card("side").style(s -> s.size(60, 20));
+        Node search = card("search").style(s -> s.size(200, 20));
+        Node item = card("item").style(s -> s.size(60, 60));
+        Node top = card("top").style(s -> s.size(20, 20));
+        Node sidebar = new Node().style(s -> s.col().gap(30).w(80)).add(top, side);
+        Node catalog = new Node().style(s -> s.col().gap(10).pad(0, 0, 0, 40)).add(search, item);
+        UIRoot r = root(new Node().style(s -> s.row().items(me.methodial.apothecary.style.Align.START)).add(sidebar, catalog));
+        r.setFocus(item, true);
+        press(r, KeyEvent.KEY_UP, 0);
+        assertSame(search, r.focused(), "up from a card reaches the field above it, not the sidebar");
+        r.setFocus(side, true);
+        press(r, KeyEvent.KEY_RIGHT, 0);
+        assertSame(item, r.focused(), "right from the sidebar goes across to what lines up with it");
+    }
+
+    @Test
     void textFieldKeepsLeftAndRightForItsCaret() {
         TextField field = new TextField("abc");
         Node other = card("other");

@@ -495,15 +495,23 @@ public class UIRoot {
         var from = layoutBounds(focused);
         Node best = null;
         float bestScore = Float.MAX_VALUE;
+        boolean bestInLine = false;
         for (Node c : list) {
             if (c == focused) continue;
             var b = layoutBounds(c);
             float ox = b.centerX() - from.centerX(), oy = b.centerY() - from.centerY();
             float along = dx != 0 ? ox * dx : oy * dy;
-            float across = Math.abs(dx != 0 ? oy : ox);
             if (along <= 0.5f) continue;
+            // In line: it shares some of the focused element's extent across the direction (a wide search field
+            // above a card, the catalog beside a sidebar entry). Those win over anything diagonal.
+            boolean inLine = dx != 0 ? b.y() < from.bottom() && b.bottom() > from.y() : b.x() < from.right() && b.right() > from.x();
+            float across = inLine ? 0 : Math.abs(dx != 0 ? oy : ox);
             float score = along + 2 * across;
-            if (score < bestScore) { bestScore = score; best = c; }
+            if (inLine && !bestInLine || inLine == bestInLine && score < bestScore) {
+                bestScore = score;
+                best = c;
+                bestInLine = inLine;
+            }
         }
         if (best == null) return false;
         setFocus(best, true);
