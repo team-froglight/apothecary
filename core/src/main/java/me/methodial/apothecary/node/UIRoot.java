@@ -801,7 +801,11 @@ public class UIRoot {
                 close(overlays.get(overlays.size() - 1).node);
                 return true;
             }
-            if (focused != null) { setFocus(null); return true; }
+            // Escape leaves a text field (one press, the caret goes); anywhere else it is not ours, so the screen closes.
+            if (focused instanceof me.methodial.apothecary.widget.TextField || focused instanceof me.methodial.apothecary.widget.TextArea) {
+                setFocus(null);
+                return true;
+            }
         }
         if ((key == KeyEvent.KEY_ENTER || key == KeyEvent.KEY_SPACE) && focused != null && focused.hasListener(EventType.CLICK)) {
             focused.emit(EventType.CLICK, new MouseEvent(mouseX, mouseY, MouseEvent.LEFT, 1, 0, 0));

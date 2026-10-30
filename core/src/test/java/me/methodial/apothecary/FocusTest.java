@@ -140,6 +140,18 @@ class FocusTest {
     }
 
     @Test
+    void escapeLeavesATextFieldButIsNotTakenElsewhere() {
+        TextField field = new TextField();
+        Node card = card("card");
+        UIRoot r = root(new Node().add(field, card));
+        r.setFocus(field, true);
+        assertTrue(r.keyDown(KeyEvent.KEY_ESCAPE, 0, 0), "escape in a field is handled: it leaves the field");
+        assertNull(r.focused());
+        r.setFocus(card, true);
+        assertFalse(r.keyDown(KeyEvent.KEY_ESCAPE, 0, 0), "escape on a card is left to the screen, which closes");
+    }
+
+    @Test
     void accessibleNameComesFromTextThenTooltipUnlessGiven() {
         Node withText = card("Diamond Pickaxe");
         Node iconOnly = new Node().focusable(true).tooltip("Close shop");
