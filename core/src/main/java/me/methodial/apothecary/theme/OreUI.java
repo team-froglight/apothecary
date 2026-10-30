@@ -250,7 +250,8 @@ public final class OreUI {
                 .refine(sel -> sel.focusVisible().hover(), v -> v.style(s -> s.shadow(faceShadows(p, true, true, true, true))))
                 // Pressed: the depth goes and the face sinks into its place.
                 .active(s -> s.bg(p.pressed()).translateY(2).shadow(faceShadows(p, false, true, false, true)))
-                .focusVisible(s -> s.shadow(faceShadows(p, true, false, true, true)))
+                // The face draws the white focus frame; drop the default theme's accent outline.
+                .focusVisible(s -> s.shadow(faceShadows(p, true, false, true, true)).outline(0, SELECTION_FRAME))
                 .disabled(s -> s.bg(p.hover()).fg(alpha(p.text(), 0.5f)).opacity(1).untransformed()
                         .shadow(faceShadows(p, false, false, false, true)));
     }
@@ -287,20 +288,23 @@ public final class OreUI {
 
     private static void controls(Sheet sheet) {
         // Text field: frame, dark well, a 2 px shade along its top; focus frames it in white.
+        // Every state re-applies the well: the default theme underneath recolors the frame on hover and swaps the
+        // top shade for a ring on focus, and an inset shade drawn over a colored frame breaks its top edge.
         sheet.on("textfield", r -> r
                 // 25 high: the text centers in the well below its 2 px top shade.
                 .style(s -> s.minW(60).h(25).padX(6).radius(0).apply(WELL).fg(TEXT))
-                .focus(s -> s.outline(1, SELECTION_FRAME, 0))
+                .hover(WELL)
+                .focus(s -> s.apply(WELL).outline(1, SELECTION_FRAME, 0))
                 .disabled(s -> s.bg(Colors.hex("#c2c4c6")).borderColor(DISABLED).fg(Colors.hex("#3f4143"))
                         .bevel(2, Colors.hex("#8f9194"), 0, Colors.TRANSPARENT).opacity(1))
-                .variantStyle("invalid", s -> s.borderColor(DANGER)));
+                .variantStyle("invalid", s -> s.apply(WELL).borderColor(DANGER)));
         sheet.rule(cls("textarea"), s -> s.h(Length.AUTO).padY(5));
 
         // Checkbox: a well; checked, the pressed green face with a white check.
         sheet.on("checkbox", r -> r
                 .part("checkbox-box", b -> b.style(s -> s.size(13).radius(0).apply(WELL).center()))
                 .partCls("check-mark", m -> m.style(s -> s.fontSize(9).stroke(3).fg(Colors.WHITE)))
-                .when(HOVER, h -> h.partStyle("checkbox-box", s -> s.bg(SURFACE_HOVER)))
+                .when(HOVER, h -> h.partStyle("checkbox-box", s -> s.bg(SURFACE_HOVER).borderColor(OUTLINE)))
                 .when(ACTIVE, a -> a.partStyle("checkbox-box", s -> s.untransformed()))
                 .when(CHECKED, c -> c.partStyle("checkbox-box", s -> s.bg(COLORED.pressed()).borderW(0)
                         .shadow(faceShadows(COLORED, false, true, false, true))))
@@ -325,7 +329,7 @@ public final class OreUI {
         sheet.on("radio", r -> r
                 .partStyle("radio-dot", s -> s.size(13).radius(0).apply(WELL))
                 .partStyle("radio-inner", s -> s.size(5).radius(0).bg(Colors.WHITE).scale(0).transition(Tr.transform(0.12f, OUT)))
-                .when(HOVER, h -> h.partStyle("radio-dot", s -> s.bg(SURFACE_HOVER)))
+                .when(HOVER, h -> h.partStyle("radio-dot", s -> s.bg(SURFACE_HOVER).borderColor(OUTLINE)))
                 .when(CHECKED, c -> c
                         .partStyle("radio-dot", s -> s.bg(COLORED.pressed()).borderW(0).shadow(faceShadows(COLORED, false, true, false, true)))
                         .partStyle("radio-inner", s -> s.untransformed()))
@@ -341,9 +345,11 @@ public final class OreUI {
                                 Shadow.inset(0, 1, 0, COLORED.secondary().resolve(t)))))
                 .partStyle("slider-thumb", s -> s.top(1).size(10, 11).radius(0).apply(face(GENERAL)).noShrink())
                 .partCls("slider-value", v -> v.style(s -> s.radius(0).bg(TOOLTIP_BG).border(1, OUTLINE).fontSize(9).fg(Colors.WHITE)))
-                .when(HOVER, h -> h.partStyle("slider-thumb", s -> s.untransformed().bg(GENERAL.hover())))
-                .when(DRAGGING, d -> d.partStyle("slider-thumb", s -> s.untransformed().bg(GENERAL.hover())))
-                .when(FOCUS_VISIBLE, f -> f.partStyle("slider-thumb", s -> s.shadow(faceShadows(GENERAL, true, false, true, true)))));
+                // Hover and drag re-apply the face: the default theme rings the thumb, which would replace its bevel.
+                .when(HOVER, h -> h.partStyle("slider-thumb", s -> s.untransformed().apply(face(GENERAL)).bg(GENERAL.hover())))
+                .when(DRAGGING, d -> d.partStyle("slider-thumb", s -> s.untransformed().apply(face(GENERAL)).bg(GENERAL.hover())))
+                .when(FOCUS_VISIBLE, f -> f.partStyle("slider-thumb", s -> s.shadow(faceShadows(GENERAL, true, false, true, true))
+                        .outline(0, SELECTION_FRAME))));
 
         sheet.on("progress", r -> r
                 .style(s -> s.h(6).radius(0).apply(WELL).noShadow())
