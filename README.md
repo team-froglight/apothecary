@@ -18,6 +18,14 @@ col(s(x -> x.gap(6).pad(10)).card(),
 Show a tree with `UIScreen`: subclass it and override `build(UIRoot)`, or
 `UIScreen.of(Component.literal("Hi"), root -> root.setContent(myNode))`.
 
+## Keyboard and narrator
+
+Every screen works from the keyboard: Tab and Shift+Tab move focus, the arrow keys move it to the nearest
+element that way (text fields, selects and sliders keep the arrows they use), Enter or Space activates, Escape
+closes. Focus survives a `Region` rebuild. A dialog drawn in the content marked `focusScope(true)` takes focus,
+keeps it inside and gives it back when it closes. `UIScreen` tells Minecraft's narrator what focus lands on,
+using `accessibleName` (given, or the element's text, or its tooltip).
+
 ## Modules
 
 | Module | What it is |
@@ -51,7 +59,7 @@ dependencies {
 Java 21.
 
 ```
-./gradlew build                 # → neoforge/build/libs/apothecary-neoforge-1.21.1-0.1.0.jar
+./gradlew build                 # → neoforge/build/libs/apothecary-neoforge-1.21.1-0.1.1.jar
 ./gradlew :neoforge:runClient   # the showcase: /apothecary
 ./gradlew publishToMavenLocal   # for a sibling mod checkout, without GitHub credentials
 ```
