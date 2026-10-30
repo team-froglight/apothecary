@@ -20,6 +20,8 @@ import java.util.ArrayDeque;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
@@ -72,10 +74,12 @@ class OreUITest {
         TextField field = new TextField();
         UIRoot r = root(new Node().add(field));
         Look rest = Look.of(field);
+        var restFill = field.computed().get(Props.BACKGROUND);
 
         states(r, field, true, "hover");
         assertEquals(rest.border(), Look.of(field).border(), "hover recolors the frame");
         assertEquals(rest.shadows(), Look.of(field).shadows(), "hover replaces the top shade");
+        assertNotEquals(field.computed().get(Props.BACKGROUND), restFill, "hover must show: the well lightens");
         states(r, field, false, "hover");
 
         for (String[] focus : List.of(new String[]{"focus"}, new String[]{"focus", "focus-visible"}, new String[]{"focus", "hover"})) {
@@ -88,6 +92,30 @@ class OreUITest {
             states(r, field, false, focus);
         }
     }
+
+    @Test
+    void darkFacesGetVisiblyLighterOnHover() {
+        Button button = new Button("Go");
+        button.variant("dark");
+        UIRoot r = root(new Node().add(button));
+        Color rest = ((me.methodial.apothecary.style.Paint.Solid) button.computed().get(Props.BACKGROUND)).color();
+        states(r, button, true, "hover");
+        Color hover = ((me.methodial.apothecary.style.Paint.Solid) button.computed().get(Props.BACKGROUND)).color();
+        assertTrue(luma(hover) - luma(rest) >= 0.04f, "hovered face barely changes: " + rest + " -> " + hover);
+        states(r, button, false, "hover");
+        Color restEdge = edge(button);
+        states(r, button, true, "hover");
+        Color hoverEdge = edge(button);
+        assertTrue(luma(hoverEdge) >= luma(restEdge), "hovered edge darkens: " + restEdge + " -> " + hoverEdge);
+    }
+
+    /** The stroke along the face's right edge, as drawn. */
+    private static Color edge(Node n) {
+        for (Shadow s : n.computed().get(Props.BOX_SHADOW)) if (s.inset() && s.offsetX() < 0) return s.color();
+        throw new AssertionError("no right-edge stroke on " + n);
+    }
+
+    private static float luma(Color c) { return 0.2126f * c.r() + 0.7152f * c.g() + 0.0722f * c.b(); }
 
     @Test
     void invalidTextFieldKeepsItsTopShade() {

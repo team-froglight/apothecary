@@ -53,6 +53,10 @@ public final class OreUI {
     /** Text field well and its top shade. */
     public static final Token<Color> WELL_BG = Token.of("ore-well", Color.hex("#313233"));
     public static final Token<Color> WELL_SHADE = Token.of("ore-well-shade", Color.hex("#242425"));
+    /** A hovered well: text fields lighten under the pointer while the frame and top shade stay. */
+    public static final Token<Color> WELL_HOVER = Token.of("ore-well-hover", Color.hex("#3e3f41"));
+    /** Dialog header and footer bars (the kit's dark hover shade, kept when hovered faces got lighter). */
+    private static final Token<Color> DIALOG_BAR = Token.of("ore-dialog-bar", Color.hex("#585959"));
     /** Overlays behind panels, menus and popups. */
     public static final Token<Color> OVERLAY_PANEL = Token.of("ore-overlay-panel", Color.hex("#00000066"));
     public static final Token<Color> OVERLAY_MENU = Token.of("ore-overlay-menu", Color.hex("#00000080"));
@@ -83,7 +87,9 @@ public final class OreUI {
             "#ffffff33", "#ffffff66", "#1d4d13", "#ffffff");
     public static final Palette GENERAL = Palette.of("general", "#d0d1d5", "#b1b2b6", "#b1b2b6", "#e3e3e5", "#e3e3e5",
             "#ffffff33", "#ffffff33", "#59595b", "#1e1e20");
-    public static final Palette GENERAL_DARK = Palette.of("general-dark", "#515453", "#585959", "#373a39", "#636562", "#4b4e4c",
+    // The kit's hover (#585959 face, #4b4e4c stroke) barely changed the face and darkened its edge, so it read as no
+    // hover at all; hovered faces here are clearly lighter, with a lighter edge.
+    public static final Palette GENERAL_DARK = Palette.of("general-dark", "#515453", "#646766", "#373a39", "#636562", "#787a79",
             "#ffffff33", "#ffffff33", "#2a2b2b", "#ffffff");
     public static final Palette WARNING = Palette.of("warning", "#e1b922", "#c09a0d", "#c09a0d", "#e7c85b", "#e7c85b",
             "#ffffff33", "#ffffff33", "#b87919", "#1e1e20");
@@ -289,11 +295,12 @@ public final class OreUI {
     private static void controls(Sheet sheet) {
         // Text field: frame, dark well, a 2 px shade along its top; focus frames it in white.
         // Every state re-applies the well: the default theme underneath recolors the frame on hover and swaps the
-        // top shade for a ring on focus, and an inset shade drawn over a colored frame breaks its top edge.
+        // top shade for a ring on focus, and an inset shade drawn over a colored frame breaks its top edge. Hover
+        // lightens the well instead; focus adds the white frame.
         sheet.on("textfield", r -> r
                 // 25 high: the text centers in the well below its 2 px top shade.
                 .style(s -> s.minW(60).h(25).padX(6).radius(0).apply(WELL).fg(TEXT))
-                .hover(WELL)
+                .hover(s -> s.apply(WELL).bg(WELL_HOVER))
                 .focus(s -> s.apply(WELL).outline(1, SELECTION_FRAME, 0))
                 .disabled(s -> s.bg(Colors.hex("#c2c4c6")).borderColor(DISABLED).fg(Colors.hex("#3f4143"))
                         .bevel(2, Colors.hex("#8f9194"), 0, Colors.TRANSPARENT).opacity(1))
@@ -388,9 +395,9 @@ public final class OreUI {
         sheet.rule(cls("modal-backdrop"), s -> s.bg(OVERLAY_POPUP));
         // Popups: a General Dark header, the dark content surface, an action strip.
         sheet.style("dialog", s -> s.radius(0).apply(PANEL));
-        sheet.style("dialog-header", s -> s.apply(flatFace(GENERAL_DARK)).bg(GENERAL_DARK.hover()).pad(5, 6, 5, 8));
+        sheet.style("dialog-header", s -> s.apply(flatFace(GENERAL_DARK)).bg(DIALOG_BAR).pad(5, 6, 5, 8));
         sheet.rule(cls("dialog-title"), s -> s.fontSize(9).regular().textCenter());
-        sheet.style("dialog-footer", s -> s.radius(0).borderTop(1, GENERAL_DARK.secondary()).bg(GENERAL_DARK.hover()));
+        sheet.style("dialog-footer", s -> s.radius(0).borderTop(1, GENERAL_DARK.secondary()).bg(DIALOG_BAR));
         sheet.rule(cls("dialog-text"), s -> s.fg(TEXT_DIM));
         sheet.on("toast", r -> r.style(s -> s.radius(0).apply(PANEL)));
         sheet.style("toast-timer", s -> s.radius(0));
