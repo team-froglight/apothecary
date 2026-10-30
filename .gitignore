@@ -1,0 +1,28 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Dev runs
+run/
+runs/
+runServer/
+
+# IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+.vscode/
+.project
+.classpath
+.settings/
+bin/
+
+# OS and crash logs
+.DS_Store
+Thumbs.db
+*.log
+hs_err_pid*
+replay_pid*

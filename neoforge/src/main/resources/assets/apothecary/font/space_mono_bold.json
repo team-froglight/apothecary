@@ -1,0 +1,1 @@
+{"providers": [{"type": "ttf", "file": "apothecary:space_mono_bold.ttf", "size": 10, "oversample": 6, "shift": [0, 0.5]}, {"type": "reference", "id": "minecraft:default"}]}
