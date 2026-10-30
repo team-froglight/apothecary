@@ -83,14 +83,18 @@ public final class OreUI {
         }
     }
 
-    public static final Palette COLORED = Palette.of("colored", "#387e24", "#275b1a", "#1c4a12", "#50913d", "#6b935f",
-            "#ffffff33", "#ffffff66", "#1d4d13", "#ffffff");
-    public static final Palette GENERAL = Palette.of("general", "#d0d1d5", "#b1b2b6", "#b1b2b6", "#e3e3e5", "#e3e3e5",
-            "#ffffff33", "#ffffff33", "#59595b", "#1e1e20");
-    // The kit's hover (#585959 face, #4b4e4c stroke) barely changed the face and darkened its edge, so it read as no
-    // hover at all; hovered faces here are clearly lighter, with a lighter edge.
-    public static final Palette GENERAL_DARK = Palette.of("general-dark", "#515453", "#646766", "#373a39", "#636562", "#787a79",
-            "#ffffff33", "#ffffff33", "#2a2b2b", "#ffffff");
+    // Colored, General and General Dark follow the Harmoniya design system sheet: hovered faces get lighter (the
+    // kit darkened Colored and General on hover), pressed ones darker. General Dark is the sheet's list-row face, a light
+    // line along its top and a dark one along its bottom; its hover, which the sheet does not show, lightens it the same way.
+    public static final Palette COLORED = Palette.of("colored", "#3c8527", "#52a535", "#2a641c", "#50913d", "#68b54d",
+            "#ffffff33", "#ffffff33", "#1d4d13", "#ffffff");
+    public static final Palette GENERAL = Palette.of("general", "#d0d1d4", "#f4f6f9", "#b1b2b5", "#e4e4e6", "#ffffff",
+            "#ffffff33", "#ffffff66", "#58585a", "#1e1e20");
+    public static final Palette GENERAL_DARK = Palette.of("general-dark", "#48494a", "#5e5f61", "#3a3b3c", "#343435", "#3e3f40",
+            "#727273", "#808183", "#2a2b2b", "#ffffff");
+    /** The sheet's dropdown face: the well's dark grey, a light line along its top and a dark one along its bottom. */
+    public static final Palette DROPDOWN = Palette.of("dropdown", "#313233", "#3c3d3f", "#2a2b2c", "#222324", "#2a2b2c",
+            "#5e6061", "#6b6d6e", "#1e1e1f", "#ffffff");
     public static final Palette WARNING = Palette.of("warning", "#e1b922", "#c09a0d", "#c09a0d", "#e7c85b", "#e7c85b",
             "#ffffff33", "#ffffff33", "#b87919", "#1e1e20");
     public static final Palette DESTRUCTIVE = Palette.of("destructive", "#c93636", "#c02d2d", "#ad1d1d", "#d04a4b", "#d98180",
@@ -105,10 +109,10 @@ public final class OreUI {
     public static synchronized Theme theme() {
         if (theme == null) {
             theme = Theme.of("Ore UI")
-                    .set(BG, Color.hex("#1e1e1f"))
+                    .set(BG, Color.hex("#23232a"))
                     .set(SURFACE, Color.hex("#313233"))
-                    .set(SURFACE_2, Color.hex("#373a39"))
-                    .set(SURFACE_3, Color.hex("#515453"))
+                    .set(SURFACE_2, Color.hex("#48494a"))
+                    .set(SURFACE_3, Color.hex("#48494a"))
                     .set(SURFACE_HOVER, Color.hex("#585959"))
                     .set(BORDER, Color.hex("#1e1e1f"))
                     .set(BORDER_STRONG, Color.hex("#1e1e1f"))
@@ -117,9 +121,9 @@ public final class OreUI {
                     .set(TEXT_FAINT, Color.hex("#ffffff73"))
                     .set(HOVER_TINT, Color.hex("#ffffff14"))
                     .set(PRESS_TINT, Color.hex("#ffffff22"))
-                    .set(ACCENT, Color.hex("#387e24"))
-                    .set(ACCENT_HOVER, Color.hex("#50913d"))
-                    .set(ACCENT_PRESS, Color.hex("#1c4a12"))
+                    .set(ACCENT, Color.hex("#3c8527"))
+                    .set(ACCENT_HOVER, Color.hex("#52a535"))
+                    .set(ACCENT_PRESS, Color.hex("#2a641c"))
                     .set(ACCENT_SOFT, Color.hex("#9ddf7733"))
                     .set(ACCENT_TEXT, Color.hex("#ffffff"))
                     .set(ACCENT_2, Color.hex("#9ddf77"))
@@ -345,7 +349,7 @@ public final class OreUI {
         // Slider: a green face up to the handle, a darkened General face after it, a General button handle.
         sheet.on("slider", r -> r
                 .style(s -> s.h(16))
-                .partStyle("slider-track", s -> s.h(6).radius(0).bg(Colors.hex("#9a9b9e")).borderW(0)
+                .partStyle("slider-track", s -> s.h(6).radius(0).bg(Colors.hex("#8c8d90")).borderW(0)
                         .shadow(t -> List.of(new Shadow(0, 0, 0, 1, OUTLINE.resolve(t), false))))
                 .partStyle("slider-fill", s -> s.radius(0).apply(flatFace(COLORED)).noShadow()
                         .shadow(t -> List.of(Shadow.inset(-1, 0, 0, COLORED.stroke().resolve(t)), Shadow.inset(0, -1, 0, COLORED.stroke().resolve(t)),
@@ -366,8 +370,8 @@ public final class OreUI {
         // Dropdowns use the General Dark face; menus are panels.
         sheet.on("select", r -> {
             r.style(s -> s.h(Length.AUTO).pad(5, 5, 5, 7).m(1, 1, 3, 1).radius(0));
-            buttonStates(r, GENERAL_DARK);
-            r.open(s -> s.shadow(faceShadows(GENERAL_DARK, true, false, true, true)));
+            buttonStates(r, DROPDOWN);
+            r.open(s -> s.shadow(faceShadows(DROPDOWN, true, false, true, true)));
         });
         sheet.on("menu", r -> r.style(s -> s.radius(0).apply(PANEL).pad(2)));
         sheet.on("menu-item", r -> r

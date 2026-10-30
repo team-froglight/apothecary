@@ -94,19 +94,23 @@ class OreUITest {
     }
 
     @Test
-    void darkFacesGetVisiblyLighterOnHover() {
+    void everyButtonFaceGetsVisiblyLighterOnHoverAsInTheDesignSystem() {
+        for (String variant : new String[]{null, "primary", "dark"}) assertLighterOnHover(variant);
+    }
+
+    private void assertLighterOnHover(String variant) {
         Button button = new Button("Go");
-        button.variant("dark");
+        if (variant != null) button.variant(variant);
         UIRoot r = root(new Node().add(button));
         Color rest = ((me.methodial.apothecary.style.Paint.Solid) button.computed().get(Props.BACKGROUND)).color();
         states(r, button, true, "hover");
         Color hover = ((me.methodial.apothecary.style.Paint.Solid) button.computed().get(Props.BACKGROUND)).color();
-        assertTrue(luma(hover) - luma(rest) >= 0.04f, "hovered face barely changes: " + rest + " -> " + hover);
+        assertTrue(luma(hover) - luma(rest) >= 0.04f, variant + ": hovered face barely changes: " + rest + " -> " + hover);
         states(r, button, false, "hover");
         Color restEdge = edge(button);
         states(r, button, true, "hover");
         Color hoverEdge = edge(button);
-        assertTrue(luma(hoverEdge) >= luma(restEdge), "hovered edge darkens: " + restEdge + " -> " + hoverEdge);
+        assertTrue(luma(hoverEdge) >= luma(restEdge), variant + ": hovered edge darkens: " + restEdge + " -> " + hoverEdge);
     }
 
     /** The stroke along the face's right edge, as drawn. */
