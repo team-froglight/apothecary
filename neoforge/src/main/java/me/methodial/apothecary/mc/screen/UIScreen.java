@@ -38,6 +38,28 @@ public class UIScreen extends Screen {
         super(title);
         ui.addSheet(DefaultTheme.sheet());
         ui.onWarning((n, msg) -> org.slf4j.LoggerFactory.getLogger("apothecary").warn("{}: {}", n, msg));
+        ui.onFocusChange((n, keyboard) -> { if (keyboard && n != null) narrate(n); });
+    }
+
+    /**
+     * Tells Minecraft's narrator what keyboard focus landed on, in the words its own widgets use (translated):
+     * "Button: Save", "Edit box: Name, tools", "Checkbox: Hidden, ON". Silent when the narrator is off.
+     */
+    protected void narrate(Node n) {
+        if (minecraft == null) return;
+        String name = n.accessibleName();
+        Component line;
+        if (n instanceof me.methodial.apothecary.widget.TextField || n instanceof me.methodial.apothecary.widget.TextArea) {
+            Object value = ((me.methodial.apothecary.widget.ValueWidget<?>) n).value();
+            String text = value == null ? "" : value.toString();
+            line = Component.translatable("narration.edit_box", text.isEmpty() || text.equals(name) ? name : name + ", " + text);
+        } else if (n instanceof me.methodial.apothecary.widget.Checkbox box) {
+            line = Component.translatable("narration.checkbox", name).append(", ")
+                .append(Component.translatable(box.checked() ? "options.on" : "options.off"));
+        } else {
+            line = Component.translatable("narration.button", name);
+        }
+        minecraft.getNarrator().sayNow(line);
     }
 
     public static UIScreen of(Component title, java.util.function.Consumer<UIRoot> builder) {
