@@ -205,6 +205,11 @@ public class UIRoot {
             rootNode.updateStyles(sheets, time, width, height, false);
             if (rootNode.layoutDirty) Layout.layoutRoot(rootNode, width, height);
         }
+        // Rebuilt elements are styled now, so focus can find them. A dialog that just closed hands focus back to
+        // its opener, which outranks the rebuild's guess at "the same place" (the dialog's own element is gone).
+        if (scopeClosing()) restorePath = null;
+        applyFocusRestore();
+        syncFocusScope();
         // Content can move under a still cursor (scrolling, animation, layout changes): re-hit-test
         // every frame so :hover, enter/leave and tooltips stay truthful. Uses last frame's paint.
         if (mouseX >= 0 && pressed == null && scrollbarDrag == null) updateHover();
@@ -216,6 +221,9 @@ public class UIRoot {
         Length.setViewport(width, height);
         rootNode.updateStyles(sheets, time, width, height, false);
         Layout.layoutRoot(rootNode, width, height);
+        if (scopeClosing()) restorePath = null;
+        applyFocusRestore();
+        syncFocusScope();
     }
 
     // ================================================================== overlays
@@ -406,9 +414,19 @@ public class UIRoot {
             n.dispatchLocal(EventType.FOCUS, new UIEvent());
             if (keyboard) n.scrollIntoView();
         }
+        if (focusListener != null) focusListener.accept(n, keyboard);
     }
 
+    private java.util.function.BiConsumer<Node, Boolean> focusListener;
+
+    /**
+     * Called whenever focus moves to another element (or to none), with whether the keyboard moved it. A platform
+     * uses it to announce the focused element; there is one listener.
+     */
+    public void onFocusChange(java.util.function.BiConsumer<Node, Boolean> listener) { this.focusListener = listener; }
+
     private Node firstFocusable(Node n) {
+        if (!n.isRendered()) return null;
         if (n.isFocusable()) return n;
         for (Node c : n.children()) {
             Node f = firstFocusable(c);
@@ -423,15 +441,172 @@ public class UIRoot {
         for (Node c : n.children()) collectFocusable(c, out);
     }
 
+    /**
+     * Where keyboard focus may go: the topmost modal overlay, else the innermost {@link Node#focusScope} in the
+     * content (the last one in tree order, which draws on top), else the whole tree.
+     */
+    public Node focusScope() {
+        for (int i = overlays.size() - 1; i >= 0; i--) if (overlays.get(i).modal) return overlays.get(i).node;
+        Node scope = innermostScope(rootNode);
+        return scope != null ? scope : rootNode;
+    }
+
+    private Node innermostScope(Node n) {
+        if (!n.isRendered()) return null;
+        Node found = n.isFocusScope() ? n : null;
+        for (Node c : n.children()) {
+            Node inner = innermostScope(c);
+            if (inner != null) found = inner;
+        }
+        return found;
+    }
+
+    private static boolean within(Node n, Node ancestor) {
+        for (Node a = n; a != null; a = a.parent()) if (a == ancestor) return true;
+        return false;
+    }
+
     public void focusNext(boolean backwards) {
-        Node scope = rootNode;
-        for (int i = overlays.size() - 1; i >= 0; i--) if (overlays.get(i).modal) { scope = overlays.get(i).node; break; }
+        Node scope = focusScope();
         List<Node> list = new ArrayList<>();
         collectFocusable(scope, list);
         if (list.isEmpty()) return;
         int idx = focused == null ? -1 : list.indexOf(focused);
         int next = idx < 0 ? (backwards ? list.size() - 1 : 0) : (idx + (backwards ? -1 : 1) + list.size()) % list.size();
         setFocus(list.get(next), true);
+    }
+
+    /**
+     * Moves keyboard focus to the nearest focusable element in a direction (dx, dy of -1, 0 or 1), within the
+     * {@link #focusScope}: the candidate must lie on that side of the focused one's center, and the closest one
+     * along the direction wins, with sideways distance counting double so a grid moves along its rows and
+     * columns. With nothing focused, focuses the first element. Returns whether focus moved.
+     */
+    public boolean focusToward(int dx, int dy) {
+        settleFocus();
+        Node scope = focusScope();
+        List<Node> list = new ArrayList<>();
+        collectFocusable(scope, list);
+        if (list.isEmpty()) return false;
+        if (focused == null || !list.contains(focused)) {
+            setFocus(list.get(0), true);
+            return true;
+        }
+        var from = layoutBounds(focused);
+        Node best = null;
+        float bestScore = Float.MAX_VALUE;
+        for (Node c : list) {
+            if (c == focused) continue;
+            var b = layoutBounds(c);
+            float ox = b.centerX() - from.centerX(), oy = b.centerY() - from.centerY();
+            float along = dx != 0 ? ox * dx : oy * dy;
+            float across = Math.abs(dx != 0 ? oy : ox);
+            if (along <= 0.5f) continue;
+            float score = along + 2 * across;
+            if (score < bestScore) { bestScore = score; best = c; }
+        }
+        if (best == null) return false;
+        setFocus(best, true);
+        return true;
+    }
+
+    /** Where layout put {@code n} in root space (scrolling included, transforms ignored); needs no paint. */
+    private static me.methodial.apothecary.geom.Rect layoutBounds(Node n) {
+        float x = n.x(), y = n.y();
+        for (Node p = n.parent(); p != null; p = p.parent()) {
+            x += p.x() - p.scrollX();
+            y += p.y() - p.scrollY();
+        }
+        return new me.methodial.apothecary.geom.Rect(x, y, n.width(), n.height());
+    }
+
+    // Focus that a scope took when it appeared, given back when it goes: a path from the content root, because the
+    // element itself may have been rebuilt meanwhile.
+    private boolean scopeActive;
+    private int[] scopeReturnPath;
+    private boolean scopeReturnKeyboard;
+
+    private boolean scopeClosing() {
+        if (!scopeActive || innermostScope(rootNode) != null) return false;
+        for (Overlay o : overlays) if (o.modal) return false;
+        return true;
+    }
+
+    /** Moves focus into a focus scope that appeared, and back to where it was when the scope is gone. */
+    private void syncFocusScope() {
+        settleFocus();
+        Node scope = innermostScope(rootNode);
+        boolean modal = false;
+        for (Overlay o : overlays) modal |= o.modal;
+        if (scope == null || modal) {
+            if (scopeActive && !modal) {
+                scopeActive = false;
+                Node back = scopeReturnPath == null ? null : resolvePath(rootNode, scopeReturnPath);
+                if (focused == null && back != null) {
+                    Node target = back.isFocusable() ? back : firstFocusable(back);
+                    if (target != null) setFocus(target, scopeReturnKeyboard);
+                }
+                scopeReturnPath = null;
+            }
+            return;
+        }
+        if (!scopeActive) {
+            scopeActive = true;
+            scopeReturnPath = focused == null ? null : pathOf(rootNode, focused);
+            scopeReturnKeyboard = focused != null && focused.hasState("focus-visible");
+        }
+        if (focused == null || !within(focused, scope)) {
+            Node first = firstFocusable(scope);
+            if (first != null) setFocus(first, scopeReturnKeyboard);
+        }
+    }
+
+    /** Child indices from {@code ancestor} down to {@code n}, or null when {@code n} is not inside it. */
+    static int[] pathOf(Node ancestor, Node n) {
+        List<Integer> path = new ArrayList<>();
+        for (Node c = n; c != ancestor; c = c.parent()) {
+            if (c == null || c.parent() == null) return null;
+            path.add(0, c.parent().children().indexOf(c));
+        }
+        return path.stream().mapToInt(Integer::intValue).toArray();
+    }
+
+    /** Follows {@code path} from {@code ancestor} as far as the tree still allows; the deepest node reached. */
+    static Node resolvePath(Node ancestor, int[] path) {
+        Node n = ancestor;
+        for (int index : path) {
+            if (index < 0 || index >= n.children().size()) break;
+            n = n.children().get(index);
+        }
+        return n;
+    }
+
+    private Node restoreUnder;
+    private int[] restorePath;
+    private boolean restoreKeyboard;
+
+    /**
+     * After a rebuild removed the focused element: put focus back on the element now at {@code path} under
+     * {@code ancestor} (or its first focusable), once the new elements are styled and laid out.
+     */
+    void queueFocusRestore(Node ancestor, int[] path, boolean keyboard) {
+        restoreUnder = ancestor;
+        restorePath = path;
+        restoreKeyboard = keyboard;
+    }
+
+    private void applyFocusRestore() {
+        if (restorePath == null) return;
+        Node ancestor = restoreUnder;
+        int[] path = restorePath;
+        restorePath = null;
+        restoreUnder = null;
+        settleFocus();
+        if (focused != null || ancestor.root() != this) return;
+        Node at = resolvePath(ancestor, path);
+        Node target = at.isFocusable() ? at : firstFocusable(at);
+        // Confined to a scope only once it is active: a scope that just appeared first learns where focus was.
+        if (target != null && (!scopeActive || within(target, focusScope()))) setFocus(target, restoreKeyboard);
     }
 
     // ================================================================== input
@@ -624,6 +799,10 @@ public class UIRoot {
             focused.emit(EventType.CLICK, new MouseEvent(mouseX, mouseY, MouseEvent.LEFT, 1, 0, 0));
             return true;
         }
+        // Arrows the focused element did not use (text carets, selects and sliders take theirs) move focus.
+        int dx = key == KeyEvent.KEY_RIGHT ? 1 : key == KeyEvent.KEY_LEFT ? -1 : 0;
+        int dy = key == KeyEvent.KEY_DOWN ? 1 : key == KeyEvent.KEY_UP ? -1 : 0;
+        if ((dx != 0 || dy != 0) && !e.primary() && !e.alt()) return focusToward(dx, dy);
         return false;
     }
 

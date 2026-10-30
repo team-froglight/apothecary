@@ -95,6 +95,8 @@ public class Node implements Styleable {
     // ------------------------------------------------------------------ interaction
     private final Map<EventType<?>, List<Consumer<? super UIEvent>>> listeners = new LinkedHashMap<>();
     private boolean focusable;
+    private boolean focusScope;
+    private String accessibleName;
     private Supplier<Node> tooltip;
     private boolean disabled;
 
@@ -822,6 +824,42 @@ public class Node implements Styleable {
     public Node tooltip(Supplier<Node> content) { this.tooltip = content; return this; }
 
     public Supplier<Node> tooltipSupplier() { return tooltip; }
+
+    /**
+     * Keeps keyboard focus inside this subtree while it is in the tree: Tab and the arrow keys stay in it, focus
+     * moves into it when it appears and goes back where it was when it leaves. For dialogs drawn as part of the
+     * content rather than through {@link UIRoot#openModal}.
+     */
+    public Node focusScope(boolean scope) { this.focusScope = scope; return this; }
+    public boolean isFocusScope() { return focusScope; }
+
+    /**
+     * What a screen reader (Minecraft's narrator) says for this element. Needed for elements whose text does not
+     * name them, such as a text field whose label sits beside it; others derive it, see {@link #accessibleName()}.
+     */
+    public Node accessibleName(String name) { this.accessibleName = name; return this; }
+
+    /** The given accessible name, else the text inside this element, else its tooltip's text; may be empty. */
+    public String accessibleName() {
+        if (accessibleName != null) return accessibleName;
+        String text = textOf(this);
+        if (!text.isEmpty() || tooltip == null) return text;
+        return textOf(tooltip.get());
+    }
+
+    private static String textOf(Node n) {
+        StringBuilder out = new StringBuilder();
+        java.util.ArrayDeque<Node> queue = new java.util.ArrayDeque<>(List.of(n));
+        while (!queue.isEmpty()) {
+            Node c = queue.poll();
+            if (c instanceof me.methodial.apothecary.widget.Text t && !t.text().isBlank()) {
+                if (!out.isEmpty()) out.append(", ");
+                out.append(t.text().strip());
+            }
+            queue.addAll(c.children());
+        }
+        return out.toString();
+    }
 
     @Override public String toString() {
         StringBuilder sb = new StringBuilder(type);

@@ -37,9 +37,16 @@ public class Region extends Node {
         refresh();
     }
 
-    /** Rebuilds now. */
+    /**
+     * Rebuilds now. Keyboard focus survives: if the focused element was rebuilt (rather than {@link #keep kept}),
+     * focus moves to the element in the same place in the new tree, as soon as it is laid out.
+     */
     public Region refresh() {
         invalid = false;
+        UIRoot root = root();
+        Node focused = root == null ? null : root.focused();
+        int[] focusPath = focused == null ? null : UIRoot.pathOf(this, focused);
+        boolean keyboard = focusPath != null && focused.hasState("focus-visible");
         building = new HashMap<>();
         try {
             clear();
@@ -48,6 +55,7 @@ public class Region extends Node {
             kept = building;
             building = null;
         }
+        if (focusPath != null) root.queueFocusRestore(this, focusPath, keyboard);
         return this;
     }
 
