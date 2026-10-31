@@ -250,6 +250,37 @@ public final class OreUI {
      */
     public static void row(me.methodial.apothecary.sheet.Rules r, Palette p) { rowStates(r, p); }
 
+    /**
+     * The kit's card, whose text is half the size of a button's, so in text pixels its lines are twice as thick: a
+     * 2-unit frame, a 2-unit light line all round with a 2-unit dark one over its right and bottom, and keyboard focus
+     * a 2-unit white frame outside. Hovered and pressed, darker. Leave 2 units around it (4 for the focus frame).
+     */
+    public static void card(me.methodial.apothecary.sheet.Rules r) {
+        r.style(s -> s.bg(CARD.bg()).fg(CARD.text()).borderW(0).shadow(cardShadows(false, false)))
+                .hover(s -> s.bg(CARD.hover()).shadow(cardShadows(true, false)))
+                .active(s -> s.bg(CARD.pressed()).untransformed().shadow(cardShadows(true, false)))
+                .focusVisible(s -> s.shadow(cardShadows(false, true)).outline(0, SELECTION_FRAME))
+                .refine(sel -> sel.focusVisible().hover(), v -> v.style(s -> s.shadow(cardShadows(true, true))));
+    }
+
+    private static Ref<List<Shadow>> cardShadows(boolean hot, boolean focus) {
+        return t -> {
+            List<Shadow> out = new ArrayList<>();
+            if (focus) out.add(new Shadow(0, 0, 0, 4, SELECTION_FRAME.resolve(t), false));
+            out.add(new Shadow(0, 0, 0, 2, OUTLINE.resolve(t), false));
+            Color light = (hot ? CARD.secondaryHover() : CARD.secondary()).resolve(t);
+            Color dark = (hot ? CARD.strokeHover() : CARD.stroke()).resolve(t);
+            // Later layers paint over earlier ones: the light line all round, then the dark one over its right and bottom.
+            out.add(Shadow.inset(0, 2, 0, light));
+            out.add(Shadow.inset(2, 0, 0, light));
+            out.add(Shadow.inset(-2, 0, 0, light));
+            out.add(Shadow.inset(0, -2, 0, light));
+            out.add(Shadow.inset(-2, 0, 0, dark));
+            out.add(Shadow.inset(0, -2, 0, dark));
+            return out;
+        };
+    }
+
     /** A panel as the kit's popup body: framed, flat. */
     public static final Consumer<Style> PANEL = s -> s.bg(POPUP_BG).border(1, OUTLINE).noShadow();
     /** A recessed well (fields, lists, item grids): framed, shaded along its top. */
