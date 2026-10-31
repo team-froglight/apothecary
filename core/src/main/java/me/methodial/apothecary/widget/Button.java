@@ -47,6 +47,19 @@ public class Button extends Node {
 
     public Text label() { return label; }
 
+    /**
+     * Shows the label in block capitals ({@link BlockLogo}) instead of text, as Ore UI's green buttons do. The text
+     * stays the button's accessible name.
+     */
+    public Button title(me.methodial.apothecary.logo.LogoStyle style, float unit) {
+        label.style(s -> s.hidden());
+        accessibleName(label.text());
+        BlockLogo logo = new BlockLogo(label.text(), style, unit);
+        logo.cls("button-title");
+        add(logo);
+        return this;
+    }
+
     public Button text(String t) { label.text(t); return this; }
 
     public Button icon(String name) {

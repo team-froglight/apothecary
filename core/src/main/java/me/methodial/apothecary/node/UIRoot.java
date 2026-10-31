@@ -348,15 +348,22 @@ public class UIRoot {
             Node content = s.get();
             if (content == null) return;
             Node tip = new Node("tooltip").cls("tooltip").add(content);
+            // A theme may draw a speech bubble from these: a cap on the right end and a stepped tail below it.
+            tip.add(new Node().cls("tooltip-cap"));
+            for (int i = 0; i < 3; i++) tip.add(new Node().cls("tooltip-step", "s" + i));
             tip.baseStyle(st -> st.absolute().pointerEvents(PointerEvents.NONE));
             tooltipLayer.add(tip);
             tooltipShown = tip;
         }
         if (tooltipShown != null) {
             float tw = tooltipShown.width(), th = tooltipShown.height();
-            float x = mouseX + 10, y = mouseY - th - 6;
-            if (y < 2) y = mouseY + 14;
-            if (x + tw > width - 2) x = mouseX - tw - 8;
+            // Above the pointer, its tail (9 below the box, its tip 9 in from the right edge) pointing at it; below the
+            // pointer, without the tail, where there is no room above.
+            float x = mouseX - tw + 9, y = mouseY - th - 11;
+            boolean below = y < 2;
+            if (below) y = mouseY + 14;
+            tooltipShown.toggleCls("below", below);
+            if (x + tw + 3 > width - 2) x = width - 2 - tw - 3;
             tooltipShown.style().set(Props.LEFT, Length.px(Math.round(Math.max(2, x))));
             tooltipShown.style().set(Props.TOP, Length.px(Math.round(Math.max(2, y))));
         }

@@ -3,15 +3,23 @@ package me.methodial.apothecary.logo;
 /**
  * The colors of a logo title: a face lit from above ({@code faceTop} → {@code faceMiddle} → {@code faceBottom}),
  * a darker extruded side ({@code sideTop} → {@code sideBottom}) and an {@code outline} around everything.
- * {@code sparkle} scatters small twinkling glints over the faces. Colors are 0xRRGGBB.
+ * {@code sparkle} scatters small twinkling glints over the faces. A {@code flat} title has only its face and a
+ * drop shadow ({@link #flat}). Colors are 0xRRGGBB.
  */
-public record LogoStyle(int faceTop, int faceMiddle, int faceBottom, int sideTop, int sideBottom, int outline, boolean sparkle) {
+public record LogoStyle(int faceTop, int faceMiddle, int faceBottom, int sideTop, int sideBottom, int outline, boolean sparkle,
+                        boolean flat) {
     /** Extruded side, as a share of a block. */
     public static final float DEPTH = 0.7f;
     /** Outline, as a share of a block. */
     public static final float OUTLINE = 0.3f;
     /** How far each block's face swells past its cell, as a share of a block: heavier strokes, tighter counters. */
     public static final float WEIGHT = 0.16f;
+    /** A flat title's swell: strokes one and a half blocks thick around counters half a block wide. */
+    public static final float FLAT_WEIGHT = 0.25f;
+
+    public LogoStyle(int faceTop, int faceMiddle, int faceBottom, int sideTop, int sideBottom, int outline, boolean sparkle) {
+        this(faceTop, faceMiddle, faceBottom, sideTop, sideBottom, outline, sparkle, false);
+    }
 
     public LogoStyle(int faceTop, int faceMiddle, int faceBottom, int sideTop, int sideBottom, int outline) {
         this(faceTop, faceMiddle, faceBottom, sideTop, sideBottom, outline, false);
@@ -39,7 +47,15 @@ public record LogoStyle(int faceTop, int faceMiddle, int faceBottom, int sideTop
     public static final LogoStyle AMETHYST = new LogoStyle(0xF2D6FF, 0xC48AF5, 0x8E54D6, 0x50268C, 0x30145C, 0x10061F, true);
 
     public LogoStyle withSparkle(boolean on) {
-        return new LogoStyle(faceTop, faceMiddle, faceBottom, sideTop, sideBottom, outline, on);
+        return new LogoStyle(faceTop, faceMiddle, faceBottom, sideTop, sideBottom, outline, on, flat);
+    }
+
+    /**
+     * A flat title, as Ore UI draws headings and green button labels: one {@code face} color, heavy strokes and a thin
+     * drop shadow in {@code shadow}, without the outline and extruded side.
+     */
+    public static LogoStyle flat(int face, int shadow) {
+        return new LogoStyle(face, face, face, shadow, shadow, shadow, false, true);
     }
 
     /** A style built around one 0xRRGGBB color. */

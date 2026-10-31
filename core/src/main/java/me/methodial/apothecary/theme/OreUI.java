@@ -40,6 +40,24 @@ import static me.methodial.apothecary.theme.Tokens.*;
 public final class OreUI {
     private OreUI() { }
 
+    // ------------------------------------------------------------------ metrics, as measured on the design sheet
+
+    /** The depth band under a raised face (buttons, knobs), in units. */
+    public static final float DEPTH = 3;
+    /** A button's face, its edge lines included: 8 above and below the 9-unit text line. */
+    public static final float BUTTON_HEIGHT = 25;
+    /** Text fields and dropdowns, their edge lines included. */
+    public static final float FIELD_HEIGHT = 28;
+    /** The checkbox and radio diamond: a square this size turned 45 degrees, 15 across. */
+    public static final float DIAMOND = 10.5f;
+
+    /** Headings in the sheet's heavy pixel capitals: white with a thin dark shadow ({@link me.methodial.apothecary.widget.BlockLogo}). */
+    public static final me.methodial.apothecary.logo.LogoStyle TITLE = me.methodial.apothecary.logo.LogoStyle.flat(0xFFFFFF, 0x121216);
+    /** A green button's label in the same capitals, its shadow dark green. */
+    public static final me.methodial.apothecary.logo.LogoStyle BUTTON_TITLE = me.methodial.apothecary.logo.LogoStyle.flat(0xFFFFFF, 0x2C6A16);
+    /** Block size of a green button's label: whole units so it lands on pixels, 11 tall (the sheet's is 8.5). */
+    public static final float BUTTON_TITLE_UNIT = 2;
+
     // ------------------------------------------------------------------ kit tokens
 
     /** The kit's "Background": the frame around every control, and the darkest surface. */
@@ -89,7 +107,7 @@ public final class OreUI {
     public static final Palette COLORED = Palette.of("colored", "#3c8527", "#52a535", "#2a641c", "#50913d", "#68b54d",
             "#ffffff33", "#ffffff33", "#1d4d13", "#ffffff");
     public static final Palette GENERAL = Palette.of("general", "#d0d1d4", "#f4f6f9", "#b1b2b5", "#e4e4e6", "#ffffff",
-            "#ffffff33", "#ffffff66", "#58585a", "#1e1e20");
+            "#ffffff33", "#ffffff66", "#58585a", "#0c0c0d");
     public static final Palette GENERAL_DARK = Palette.of("general-dark", "#48494a", "#5e5f61", "#3a3b3c", "#343435", "#3e3f40",
             "#727273", "#808183", "#2a2b2b", "#ffffff");
     /** The sheet's dropdown face: the well's dark grey, a light line along its top and a dark one along its bottom. */
@@ -97,7 +115,7 @@ public final class OreUI {
             "#5e6061", "#6b6d6e", "#1e1e1f", "#ffffff");
     /** The sheet's disabled control: a flat light grey face with a grey bottom line and grey text, whatever its color. */
     public static final Palette DISABLED_FACE = Palette.of("disabled", "#d0d1d4", "#d0d1d4", "#d0d1d4", "#98999c", "#98999c",
-            "#d9dadc", "#d9dadc", "#58585a", "#58585a");
+            "#d9dadc", "#d9dadc", "#58585a", "#3e3f40");
     public static final Palette WARNING = Palette.of("warning", "#e1b922", "#c09a0d", "#c09a0d", "#e7c85b", "#e7c85b",
             "#ffffff33", "#ffffff33", "#b87919", "#1e1e20");
     public static final Palette DESTRUCTIVE = Palette.of("destructive", "#c93636", "#c02d2d", "#ad1d1d", "#d04a4b", "#d98180",
@@ -161,7 +179,7 @@ public final class OreUI {
         return t -> {
             List<Shadow> out = new ArrayList<>();
             Color outline = OUTLINE.resolve(t);
-            float below = depth ? 2 : 0;
+            float below = depth ? DEPTH : 0;
             if (focus) {
                 Color white = SELECTION_FRAME.resolve(t);
                 out.add(new Shadow(0, 0, 0, 2, white, false));
@@ -191,13 +209,13 @@ public final class OreUI {
 
     /**
      * The kit's states for any clickable element drawn as a face in palette {@code p} (default, hover, pressed,
-     * focused, disabled), as buttons have them. Leave 1 px around and 3 px below it for the frame and depth.
+     * focused, disabled), as buttons have them. Leave 1 unit around and 4 below it for the frame and depth.
      */
     public static void interactive(me.methodial.apothecary.sheet.Rules r, Palette p) { buttonStates(r, p); }
 
     /** The pressed face of palette {@code p}, held: no depth, hover strokes, sunk into its place (selected items). */
     public static Consumer<Style> pressedFace(Palette p) {
-        return s -> s.bg(p.pressed()).fg(p.text()).borderW(0).translateY(2).shadow(faceShadows(p, false, true, false, true));
+        return s -> s.bg(p.pressed()).fg(p.text()).borderW(0).translateY(DEPTH).shadow(faceShadows(p, false, true, false, true));
     }
 
     /** A framed face without depth: raised rows, headers, fills. */
@@ -224,6 +242,40 @@ public final class OreUI {
             Shadow.inset(-1, 0, 0, Color.hex("#3a3a3b")), Shadow.inset(0, -1, 0, Color.hex("#3a3a3b"))));
     /** A dark field as on the sheet (its dropdowns): flat, a light line along its top and left, a dark one below. */
     public static final Consumer<Style> FIELD = s -> s.apply(flatFace(DROPDOWN)).borderColor(OUTLINE);
+    /** A diamond's face and the rim just inside its frame. */
+    private record Diamond(Color face, Color rim) {
+        Diamond(String face, String rim) { this(Color.hex(face), Color.hex(rim)); }
+    }
+
+    private static final Diamond DIAMOND_OFF = new Diamond("#8c8d90", "#a5a6a8");
+    private static final Diamond DIAMOND_OFF_HOVER = new Diamond("#b1b2b5", "#c6c7c9");
+    private static final Diamond DIAMOND_OFF_PRESSED = new Diamond("#575759", "#6e6e70");
+    private static final Diamond DIAMOND_ON = new Diamond("#3c8527", "#5f9c4e");
+    private static final Diamond DIAMOND_ON_HOVER = new Diamond("#52a535", "#6db857");
+    private static final Diamond DIAMOND_ON_PRESSED = new Diamond("#2a641c", "#457738");
+    private static final Diamond DIAMOND_DISABLED = new Diamond("#d0d1d4", "#909194");
+
+    /** The diamond's frame (or, focused, the white frame around it) and its rim. */
+    private static Ref<List<Shadow>> diamondShadows(Diamond d, boolean focus) {
+        return t -> {
+            List<Shadow> out = new ArrayList<>();
+            if (focus) out.add(new Shadow(0, 0, 0, 3, SELECTION_FRAME.resolve(t), false));
+            out.add(new Shadow(0, 0, 0, focus ? 2 : 1, OUTLINE.resolve(t), false));
+            out.add(new Shadow(0, 0, 0, 1, d.rim(), true));
+            return out;
+        };
+    }
+
+    private static Consumer<Style> diamond(Diamond d, boolean focus) {
+        return s -> s.size(DIAMOND).m(3).noShrink().center().radius(0).borderW(0).borderColor(OUTLINE).bg(d.face()).rotate(45)
+                .outline(0, SELECTION_FRAME).shadow(diamondShadows(d, focus));
+    }
+
+    /** The white diamond in a checked one: white, its lower half grey once turned. */
+    private static final Consumer<Style> DIAMOND_MARK = s -> s.size(4).radius(0).borderW(0).bg(Colors.WHITE)
+            .fg(Color.TRANSPARENT).shadow(t -> List.of(Shadow.inset(-1, 0, 0, Color.hex("#d0d2d5")),
+                    Shadow.inset(0, -1, 0, Color.hex("#d0d2d5"))));
+
     /** A disabled control as on the sheet: the flat light grey face. */
     public static final Consumer<Style> DISABLED_CONTROL = s -> s.bg(DISABLED_FACE.bg()).fg(DISABLED_FACE.text())
             .opacity(1).untransformed().borderW(0).shadow(faceShadows(DISABLED_FACE, false, false, false, true));
@@ -275,7 +327,7 @@ public final class OreUI {
                 .hover(s -> s.bg(p.hover()).shadow(faceShadows(p, true, true, false, true)))
                 .refine(sel -> sel.focusVisible().hover(), v -> v.style(s -> s.shadow(faceShadows(p, true, true, true, true))))
                 // Pressed: the depth goes and the face sinks into its place.
-                .active(s -> s.bg(p.pressed()).translateY(2).shadow(faceShadows(p, false, true, false, true)))
+                .active(s -> s.bg(p.pressed()).translateY(DEPTH).shadow(faceShadows(p, false, true, false, true)))
                 // The face draws the white focus frame; drop the default theme's accent outline.
                 .focusVisible(s -> s.shadow(faceShadows(p, true, false, true, true)).outline(0, SELECTION_FRAME))
                 // Disabled: the sheet's flat light grey face, whatever the palette.
@@ -297,7 +349,7 @@ public final class OreUI {
         sheet.on("button", r -> {
             // The frame and depth are drawn outside the box: margins keep neighbours clear of them.
             // 9 px text like all other text; symmetric padding centers the capitals in the face between its strokes.
-            r.style(s -> s.row().center().gap(4).pad(6, 9).m(1, 1, 3, 1).radius(0).fontSize(9).lineHeight(1).regular().pointer().noShrink()
+            r.style(s -> s.row().center().gap(4).pad(8, 9).m(1, 1, 4, 1).radius(0).fontSize(9).lineHeight(1).regular().pointer().noShrink()
                     .transition(Tr.colors(0.06f), Tr.transform(0.05f, OUT), Tr.opacity(FAST)));
             buttonStates(r, GENERAL);
             // Green buttons carry their label in bold capitals with a shadow, as on the sheet.
@@ -329,24 +381,28 @@ public final class OreUI {
         // Every state re-applies the field: the default theme underneath recolors the frame on hover and swaps the
         // lines for a ring on focus. Hover lightens the field instead; focus adds the white frame.
         sheet.on("textfield", r -> r
-                .style(s -> s.minW(60).h(25).padX(6).radius(0).apply(FIELD).fg(TEXT))
+                .style(s -> s.minW(60).h(FIELD_HEIGHT).padX(8).radius(0).apply(FIELD).fg(TEXT))
                 .hover(s -> s.apply(FIELD).bg(DROPDOWN.hover()))
                 .focus(s -> s.apply(FIELD).outline(1, SELECTION_FRAME, 0))
                 .disabled(DISABLED_CONTROL)
                 .variantStyle("invalid", s -> s.apply(FIELD).outline(1, DANGER, 0)));
         sheet.rule(cls("textarea"), s -> s.h(Length.AUTO).padY(5));
 
-        // Checkbox: a well; checked, the pressed green face with a white check.
+        // Checkbox and radio: the sheet's diamond, a framed square turned 45 degrees with a lighter rim; checked, green
+        // with a small white diamond in it. Lighter on hover, darker pressed, the white frame on keyboard focus.
         sheet.on("checkbox", r -> r
-                .part("checkbox-box", b -> b.style(s -> s.size(13).radius(0).apply(WELL).center()))
-                .partCls("check-mark", m -> m.style(s -> s.fontSize(9).stroke(3).fg(Colors.WHITE)))
-                .when(HOVER, h -> h.partStyle("checkbox-box", s -> s.bg(SURFACE_HOVER).borderColor(OUTLINE)))
-                .when(ACTIVE, a -> a.partStyle("checkbox-box", s -> s.untransformed()))
-                .when(CHECKED, c -> c.partStyle("checkbox-box", s -> s.bg(COLORED.pressed()).borderW(0)
-                        .shadow(faceShadows(COLORED, false, true, false, true))))
-                .when(INDETERMINATE, c -> c.partStyle("checkbox-box", s -> s.bg(COLORED.pressed()).borderW(0)
-                        .shadow(faceShadows(COLORED, false, true, false, true))))
-                .when(FOCUS_VISIBLE, f -> f.partStyle("checkbox-box", FOCUS)));
+                .style(s -> s.gap(8))
+                .part("checkbox-box", b -> b.style(diamond(DIAMOND_OFF, false)))
+                .partCls("check-mark", m -> m.style(s -> s.apply(DIAMOND_MARK).opacity(0).transition(Tr.opacity(0.08f))))
+                .when(HOVER, h -> h.partStyle("checkbox-box", diamond(DIAMOND_OFF_HOVER, false)))
+                .when(ACTIVE, a -> a.partStyle("checkbox-box", diamond(DIAMOND_OFF_PRESSED, false)))
+                .when(CHECKED, c -> c.partStyle("checkbox-box", diamond(DIAMOND_ON, false)).partCls("check-mark", m -> m.style(s -> s.opacity(1))))
+                .when(INDETERMINATE, c -> c.partStyle("checkbox-box", diamond(DIAMOND_ON, false)).partCls("check-mark", m -> m.style(s -> s.opacity(1))))
+                .refine(sel -> sel.checked().hover(), v -> v.partStyle("checkbox-box", diamond(DIAMOND_ON_HOVER, false)))
+                .refine(sel -> sel.checked().active(), v -> v.partStyle("checkbox-box", diamond(DIAMOND_ON_PRESSED, false)))
+                .when(FOCUS_VISIBLE, f -> f.partStyle("checkbox-box", s -> s.shadow(diamondShadows(DIAMOND_OFF, true))))
+                .refine(sel -> sel.checked().focusVisible(), v -> v.partStyle("checkbox-box", s -> s.shadow(diamondShadows(DIAMOND_ON, true))))
+                .refine(sel -> sel.disabled(), d -> d.style(s -> s.opacity(1)).partStyle("checkbox-box", diamond(DIAMOND_DISABLED, false))));
 
         // Switch: a framed track (green when on, gray when off) and a General button knob with its depth.
         sheet.on("switch", r -> r
@@ -363,13 +419,16 @@ public final class OreUI {
                 .when(FOCUS_VISIBLE, f -> f.partStyle("switch-track", s -> s.outline(1, SELECTION_FRAME, 1))));
 
         sheet.on("radio", r -> r
-                .partStyle("radio-dot", s -> s.size(13).radius(0).apply(WELL))
-                .partStyle("radio-inner", s -> s.size(5).radius(0).bg(Colors.WHITE).scale(0).transition(Tr.transform(0.12f, OUT)))
-                .when(HOVER, h -> h.partStyle("radio-dot", s -> s.bg(SURFACE_HOVER).borderColor(OUTLINE)))
-                .when(CHECKED, c -> c
-                        .partStyle("radio-dot", s -> s.bg(COLORED.pressed()).borderW(0).shadow(faceShadows(COLORED, false, true, false, true)))
-                        .partStyle("radio-inner", s -> s.untransformed()))
-                .when(FOCUS_VISIBLE, f -> f.partStyle("radio-dot", FOCUS)));
+                .style(s -> s.gap(8))
+                .partStyle("radio-dot", diamond(DIAMOND_OFF, false))
+                .partStyle("radio-inner", s -> s.apply(DIAMOND_MARK).opacity(0).transition(Tr.opacity(0.08f)))
+                .when(HOVER, h -> h.partStyle("radio-dot", diamond(DIAMOND_OFF_HOVER, false)))
+                .when(ACTIVE, a -> a.partStyle("radio-dot", diamond(DIAMOND_OFF_PRESSED, false)))
+                .when(CHECKED, c -> c.partStyle("radio-dot", diamond(DIAMOND_ON, false)).partStyle("radio-inner", s -> s.opacity(1)))
+                .refine(sel -> sel.checked().hover(), v -> v.partStyle("radio-dot", diamond(DIAMOND_ON_HOVER, false)))
+                .refine(sel -> sel.checked().active(), v -> v.partStyle("radio-dot", diamond(DIAMOND_ON_PRESSED, false)))
+                .when(FOCUS_VISIBLE, f -> f.partStyle("radio-dot", s -> s.shadow(diamondShadows(DIAMOND_OFF, true))))
+                .refine(sel -> sel.checked().focusVisible(), v -> v.partStyle("radio-dot", s -> s.shadow(diamondShadows(DIAMOND_ON, true)))));
 
         // Slider: a green face up to the handle, a darkened General face after it, a General button handle.
         sheet.on("slider", r -> r
@@ -394,9 +453,11 @@ public final class OreUI {
 
         // Dropdowns are the sheet's dark field, flat like rows; menus are panels.
         sheet.on("select", r -> {
-            r.style(s -> s.h(Length.AUTO).pad(5, 5, 5, 7).m(1).radius(0));
+            r.style(s -> s.h(FIELD_HEIGHT).pad(0, 8).m(1).radius(0));
             rowStates(r, DROPDOWN);
             r.disabled(DISABLED_CONTROL);
+            // The sheet's chevron: 9 across, a one-unit line.
+            r.partCls("select-arrow", a -> a.style(s -> s.fontSize(18).stroke(1.4f)));
             r.open(s -> s.shadow(faceShadows(DROPDOWN, false, false, true, true)));
         });
         sheet.on("menu", r -> r.style(s -> s.radius(0).apply(PANEL).pad(2)));
@@ -421,7 +482,17 @@ public final class OreUI {
 
     private static void overlays(Sheet sheet) {
         // Tooltips are the kit's blue.
-        sheet.on("tooltip", r -> r.style(s -> s.radius(0).bg(TOOLTIP_BG).border(1, OUTLINE).noShadow().fontSize(9).fg(Colors.WHITE).pad(3, 5)));
+        // Tooltips: the sheet's blue speech bubble, framed, its right end stepped in and a stepped tail below.
+        sheet.on("tooltip", r -> r.style(s -> s.radius(0).bg(TOOLTIP_BG).border(1, OUTLINE).noShadow().fontSize(9).fg(Colors.WHITE).pad(2, 3)));
+        sheet.rule(cls("tooltip-cap"), s -> s.abs().right(-2).top(2).bottom(2).w(3).bg(TOOLTIP_BG).borders(1, 1, 1, 0, OUTLINE));
+        // The tail: three steps 6, 4 and 2 wide and 2 high, right-aligned 8 in from the box's right edge; each step
+        // covers the frame line above it so the blue runs through.
+        sheet.rule(cls("tooltip-step"), s -> s.abs().right(7).h(4).bg(TOOLTIP_BG).borders(0, 1, 1, 1, OUTLINE));
+        for (int i = 0; i < 3; i++) {
+            int step = i;
+            sheet.rule(cls("tooltip-step").withCls("s" + i), s -> s.w(8 - 2 * step).bottom(-3 - 3 * step));
+        }
+        sheet.rule(cls("tooltip-step").in(cls("below")), s -> s.hidden());
         sheet.rule(cls("modal-backdrop"), s -> s.bg(OVERLAY_POPUP));
         // Popups: a General Dark header, the dark content surface, an action strip.
         sheet.style("dialog", s -> s.radius(0).apply(PANEL));

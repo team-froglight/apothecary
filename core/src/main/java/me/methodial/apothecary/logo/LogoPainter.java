@@ -27,14 +27,21 @@ public final class LogoPainter {
 
     private LogoPainter() { }
 
-    /** Width of the title in local units, outline included. */
+    private static boolean flat(List<LogoRun> runs) { return !runs.isEmpty() && runs.getFirst().style().flat(); }
+
+    /** Width of the title in local units, outline (or a flat title's swell) included. */
     public static float width(List<LogoRun> runs, float unit) {
-        return (LogoFont.width(text(runs)) + 2 * PAD) * unit;
+        return (LogoFont.width(text(runs)) + 2 * (flat(runs) ? LogoStyle.FLAT_WEIGHT : PAD)) * unit;
     }
 
     /** Height of a title in local units, extruded side and outline included. */
     public static float height(float unit) {
         return (LogoFont.HEIGHT + LogoStyle.DEPTH + 2 * PAD) * unit;
+    }
+
+    /** Height of these runs in local units: a flat title has no side or outline, only its swell. */
+    public static float height(List<LogoRun> runs, float unit) {
+        return flat(runs) ? (LogoFont.HEIGHT + 2 * LogoStyle.FLAT_WEIGHT) * unit : height(unit);
     }
 
     /** Block size at which the title fits {@code maxWidth}, capped at {@code unit}. */
@@ -143,10 +150,12 @@ public final class LogoPainter {
         Affine dev = c.deviceMatrix();
         float ps = dev.approxScale();
         int up = Math.max(1, Math.round(unit * ps));
-        int op = Math.max(1, Math.round(up * LogoStyle.OUTLINE));
-        int dp = Math.max(1, Math.round(up * LogoStyle.DEPTH));
+        boolean flat = flat(runs);
+        int op = flat ? 0 : Math.max(1, Math.round(up * LogoStyle.OUTLINE));
+        int dp = flat ? Math.max(1, Math.round(ps * 0.5f)) : Math.max(1, Math.round(up * LogoStyle.DEPTH));
         int bevel = Math.max(1, Math.round(up * 0.14f));
-        int grow = Math.round(up * LogoStyle.WEIGHT);
+        // A flat title keeps its counters open: at small sizes the swell gives way before they close.
+        int grow = flat ? Math.min(Math.round(up * LogoStyle.FLAT_WEIGHT), (up - 1) / 2) : Math.round(up * LogoStyle.WEIGHT);
         int x0 = Math.round(dev.mapX(x, y)) + op + grow, y0 = Math.round(dev.mapY(x, y)) + op + grow;
         int[] lx = new int[count], ly = new int[count];
         boolean[] shown = new boolean[count];
@@ -177,14 +186,18 @@ public final class LogoPainter {
                 // The block's face, swollen past its cell so strokes are heavy and neighbours overlap.
                 int fx0 = cx - grow, fy0 = cy - grow, fx1 = cx + up + grow, fy1 = cy + up + grow;
                 switch (pass) {
-                    // One outline around the faces and their sides.
-                    case 0 -> b.add(fx0 - op, fy0 - op, fx1 + op, fy1 + dp + op, argb(255, s.outline()));
+                    // A flat title's drop shadow (dp down and right); otherwise one outline around the faces and sides.
+                    case 0 -> {
+                        if (s.flat()) b.add(fx0 + dp, fy0 + dp, fx1 + dp, fy1 + dp, argb(255, s.sideTop()));
+                        else b.add(fx0 - op, fy0 - op, fx1 + op, fy1 + dp + op, argb(255, s.outline()));
+                    }
                     // The side, extruded straight down below the face.
-                    case 1 -> b.add(fx0, cy + up / 2, fx1, fy1 + dp, argb(255, s.sideTop()), argb(255, s.sideBottom()));
+                    case 1 -> { if (!s.flat()) b.add(fx0, cy + up / 2, fx1, fy1 + dp, argb(255, s.sideTop()), argb(255, s.sideBottom())); }
                     // The face, lit from above: one smooth gradient down the whole letter.
                     case 2 -> b.add(fx0, fy0, fx1, fy1, argb(255, s.face((fy0 - ly + grow) / rows)),
                             argb(255, s.face((fy1 - ly + grow) / rows)));
                     case 3 -> {
+                        if (s.flat()) break;
                         // Bevelled edges: light catches the top and left, the bottom and right fall in shade.
                         // Each edge stops where a neighbour's swollen face begins, so inner corners stay clean.
                         boolean l = LogoFont.solid(c, bx - 1, by), r = LogoFont.solid(c, bx + 1, by);

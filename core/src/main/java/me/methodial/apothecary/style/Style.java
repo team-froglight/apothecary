@@ -309,6 +309,14 @@ public class Style {
         values.put(Props.BORDER_RIGHT_WIDTH, width);
         return set(Props.BORDER_COLOR, c);
     }
+    /** Each edge its own width, one color (0 leaves an edge open). */
+    public Style borders(float top, float right, float bottom, float left, Ref<Color> c) {
+        values.put(Props.BORDER_TOP_WIDTH, top);
+        values.put(Props.BORDER_RIGHT_WIDTH, right);
+        values.put(Props.BORDER_BOTTOM_WIDTH, bottom);
+        values.put(Props.BORDER_LEFT_WIDTH, left);
+        return set(Props.BORDER_COLOR, c);
+    }
     public Style noBorder() { return borderW(0); }
 
     public Style radius(float r) { return set(Props.BORDER_RADIUS, Corners.all(r)); }

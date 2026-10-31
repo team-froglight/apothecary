@@ -69,7 +69,7 @@ public class BlockLogo extends Node {
     @Override
     protected float[] measureContent(float availWidth, float availHeight) {
         float u = fit && Float.isFinite(availWidth) && availWidth > 0 ? LogoPainter.fit(runs, unit, availWidth) : unit;
-        return new float[]{LogoPainter.width(runs, u), LogoPainter.height(u)};
+        return new float[]{LogoPainter.width(runs, u), LogoPainter.height(runs, u)};
     }
 
     /** Letter i's drop: 0 not yet, 1 landed, overshooting a little in between. */
@@ -92,7 +92,7 @@ public class BlockLogo extends Node {
     @Override
     protected void paintContent(Canvas c, Rect r) {
         float u = fit ? LogoPainter.fit(runs, unit, r.width()) : unit;
-        float w = LogoPainter.width(runs, u), h = LogoPainter.height(u);
+        float w = LogoPainter.width(runs, u), h = LogoPainter.height(runs, u);
         float time = root() != null ? root().time() : 0;
         LogoPainter.Motion motion = null;
         if (!Float.isNaN(dropStart)) {
