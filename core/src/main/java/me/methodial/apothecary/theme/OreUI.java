@@ -154,6 +154,20 @@ public final class OreUI {
      * The shadow layers that build an Ore face: the frame (and the depth's frame below it), the depth band, the
      * secondary stroke 1 px inside the top and left, and the stroke along the right and bottom.
      */
+    /**
+     * A pressed face: its frame, and its resting lines blended halfway into the pressed colour. Sunk into place, a face
+     * keeps only a hint of its edges; at full strength the light top and left line read as a glowing L.
+     */
+    private static Ref<List<Shadow>> pressedShadows(Palette p) {
+        return t -> {
+            Color face = p.pressed().resolve(t);
+            Color secondary = p.secondary().resolve(t).lerp(face, 0.5f), stroke = p.stroke().resolve(t).lerp(face, 0.5f);
+            return List.of(new Shadow(0, 0, 0, 1, OUTLINE.resolve(t), false),
+                    Shadow.inset(0, 1, 0, secondary), Shadow.inset(1, 0, 0, secondary),
+                    Shadow.inset(-1, 0, 0, stroke), Shadow.inset(0, -1, 0, stroke));
+        };
+    }
+
     private static Ref<List<Shadow>> faceShadows(Palette p, boolean depth, boolean hot, boolean focus, boolean frame) {
         return t -> {
             List<Shadow> out = new ArrayList<>();
@@ -192,9 +206,9 @@ public final class OreUI {
      */
     public static void interactive(me.methodial.apothecary.sheet.Rules r, Palette p) { buttonStates(r, p); }
 
-    /** The pressed face of palette {@code p}, held: no depth, hover strokes, sunk into its place (selected items). */
+    /** The pressed face of palette {@code p}, held: no depth, quieted strokes, sunk into its place (selected items). */
     public static Consumer<Style> pressedFace(Palette p) {
-        return s -> s.bg(p.pressed()).fg(p.text()).borderW(0).translateY(2).shadow(faceShadows(p, false, true, false, true));
+        return s -> s.bg(p.pressed()).fg(p.text()).borderW(0).translateY(2).shadow(pressedShadows(p));
     }
 
     /** A framed face without depth: raised rows, headers, fills. */
@@ -258,8 +272,9 @@ public final class OreUI {
                 // Hovered: the hover background, and the hover stroke and secondary line; the depth stays.
                 .hover(s -> s.bg(p.hover()).shadow(faceShadows(p, true, true, false, true)))
                 .refine(sel -> sel.focusVisible().hover(), v -> v.style(s -> s.shadow(faceShadows(p, true, true, true, true))))
-                // Pressed: the depth goes and the face sinks into its place.
-                .active(s -> s.bg(p.pressed()).translateY(2).shadow(faceShadows(p, false, true, false, true)))
+                // Pressed: the depth goes and the face sinks into its place, its edge lines quieted (at full strength the
+                // light top and left line glowed along a sunk face).
+                .active(s -> s.bg(p.pressed()).translateY(2).shadow(pressedShadows(p)))
                 // The face draws the white focus frame; drop the default theme's accent outline.
                 .focusVisible(s -> s.shadow(faceShadows(p, true, false, true, true)).outline(0, SELECTION_FRAME))
                 .disabled(s -> s.bg(p.hover()).fg(alpha(p.text(), 0.5f)).opacity(1).untransformed()

@@ -98,6 +98,30 @@ class OreUITest {
         for (String variant : new String[]{null, "primary", "dark"}) assertLighterOnHover(variant);
     }
 
+    @Test
+    void pressedFacesQuietTheirEdgeLines() {
+        // Sunk, a face keeps only a hint of its edges: at full strength (or hover strength) the light top and left line
+        // read as a glowing L along a pressed face, the opposite of pressed in.
+        for (String variant : new String[]{null, "primary", "dark"}) {
+            Button button = new Button("Go");
+            if (variant != null) button.variant(variant);
+            UIRoot r = root(new Node().add(button));
+            float rest = Math.abs(luma(topLine(button)) - luma(face(button)));
+            states(r, button, true, "hover", "active");
+            float pressed = Math.abs(luma(topLine(button)) - luma(face(button)));
+            assertTrue(pressed < rest, variant + ": the top line stands out more pressed (" + pressed + ") than at rest (" + rest + ")");
+        }
+    }
+
+    private static Color topLine(Node n) {
+        for (Shadow s : n.computed().get(Props.BOX_SHADOW)) if (s.inset() && s.offsetY() > 0) return s.color();
+        throw new AssertionError("no top line on " + n);
+    }
+
+    private static Color face(Node n) {
+        return ((me.methodial.apothecary.style.Paint.Solid) n.computed().get(Props.BACKGROUND)).color();
+    }
+
     private void assertLighterOnHover(String variant) {
         Button button = new Button("Go");
         if (variant != null) button.variant(variant);
