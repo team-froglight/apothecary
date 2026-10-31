@@ -723,9 +723,14 @@ public class Node implements Styleable {
         float off = current.get(Props.OUTLINE_OFFSET);
         Rect r = box.outset(off + ow);
         Corners radii = current.radius();
-        Corners outer = new Corners(radii.topLeft() + off + ow, radii.topRight() + off + ow, radii.bottomRight() + off + ow, radii.bottomLeft() + off + ow);
+        // Rounded corners grow with the outline; square ones stay square, so blocky designs keep hard pixel corners.
+        float grow = off + ow;
+        Corners outer = new Corners(round(radii.topLeft(), grow), round(radii.topRight(), grow),
+                round(radii.bottomRight(), grow), round(radii.bottomLeft(), grow));
         c.drawBox(r, outer.fit(r.width(), r.height()), Paint.NONE, ow, oc);
     }
+
+    private static float round(float radius, float grow) { return radius > 0 ? radius + grow : 0; }
 
     // ================================================================== hit testing
 
