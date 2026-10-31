@@ -59,7 +59,7 @@ public class PixelIcon extends Node {
         kit("chevron-down", "#.....#", ".#...#.", "..#.#..", "...#...");
         kit("close", "#.....#", ".#...#.", "..#.#..", "...#...", "..#.#..", ".#...#.", "#.....#");
         kit("check", "......#", ".....#.", "#...#..", ".#.#...", "..#....");
-        kit("edit", ".....##.", "....#..#", "...#.#.#", "..#...#.", ".#...#..", "#...#...", "##.#....", "###.....");
+        kit("edit", ".....##.", "....#..#", "...#..#.", "..#..#..", ".#..#...", "#..#....", "#.#.....", "##......");
         kit("minus", "######");
         kit("plus", "..#..", "..#..", "#####", "..#..", "..#..");
         kit("search", ".####...", "#....#..", "#....#..", "#....#..", "#....#..", ".####.#.", ".......#");
@@ -126,9 +126,10 @@ public class PixelIcon extends Node {
         int cell = Math.max(1, (int) Math.floor(Math.min(box.width(), box.height()) * ps / art.frame() + 1e-3f));
         int x0 = Math.round(dev.mapX(box.x(), box.y()) + (box.width() * ps - cell * cols) / 2f);
         int y0 = Math.round(dev.mapY(box.x(), box.y()) + (box.height() * ps - cell * rows.length) / 2f);
-        // The kit's shadow, under light icons only: half-black, offset by most of a cell.
+        // The kit's shadow, under solid light icons only (on faint ones it reads as a smudge): half-black, offset
+        // by most of a cell.
         boolean light = 0.2126f * color.r() + 0.7152f * color.g() + 0.0722f * color.b() > 0.5f;
-        if (art.shadow() && light) {
+        if (art.shadow() && light && color.a() > 0.9f) {
             int off = Math.max(1, Math.round(cell * 0.7f));
             fill(c, dev, rows, x0 + off, y0 + off, cell, Color.rgba(0, 0, 0, 0.5f * color.a()));
         }
