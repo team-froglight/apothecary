@@ -398,9 +398,9 @@ public final class OreUI {
             r.style(s -> s.row().center().gap(4).pad(7, 9, 6, 9).m(1, 1, 1 + DEPTH, 1).radius(0).fontSize(9).lineHeight(1).regular().pointer().noShrink()
                     .transition(Tr.colors(0.06f), Tr.transform(0.05f, OUT), Tr.opacity(FAST)));
             buttonStates(r, GENERAL);
-            // Green buttons carry their label in bold capitals with a shadow, as on the sheet.
-            r.variant("primary", v -> { buttonStates(v, COLORED); v.style(s -> s.bold().upper().textShadow(true)); });
-            r.variant("success", v -> { buttonStates(v, COLORED); v.style(s -> s.bold().upper().textShadow(true)); });
+            // Green buttons: the kit's white label with its text shadow.
+            r.variant("primary", v -> { buttonStates(v, COLORED); v.style(s -> s.textShadow(true)); });
+            r.variant("success", v -> { buttonStates(v, COLORED); v.style(s -> s.textShadow(true)); });
             r.variant("dark", v -> buttonStates(v, GENERAL_DARK));
             r.variant("warning", v -> buttonStates(v, WARNING));
             r.variant("gold", v -> buttonStates(v, WARNING));
