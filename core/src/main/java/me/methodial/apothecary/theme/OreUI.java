@@ -95,6 +95,9 @@ public final class OreUI {
     /** The sheet's dropdown face: the well's dark grey, a light line along its top and a dark one along its bottom. */
     public static final Palette DROPDOWN = Palette.of("dropdown", "#313233", "#3c3d3f", "#2a2b2c", "#222324", "#2a2b2c",
             "#5e6061", "#6b6d6e", "#1e1e1f", "#ffffff");
+    /** The sheet's disabled control: a flat light grey face with a grey bottom line and grey text, whatever its color. */
+    public static final Palette DISABLED_FACE = Palette.of("disabled", "#d0d1d4", "#d0d1d4", "#d0d1d4", "#98999c", "#98999c",
+            "#d9dadc", "#d9dadc", "#58585a", "#58585a");
     public static final Palette WARNING = Palette.of("warning", "#e1b922", "#c09a0d", "#c09a0d", "#e7c85b", "#e7c85b",
             "#ffffff33", "#ffffff33", "#b87919", "#1e1e20");
     public static final Palette DESTRUCTIVE = Palette.of("destructive", "#c93636", "#c02d2d", "#ad1d1d", "#d04a4b", "#d98180",
@@ -209,8 +212,21 @@ public final class OreUI {
                 Shadow.inset(0, 1, 0, BEVEL_LIGHT.resolve(t)), Shadow.inset(0, -1, 0, BEVEL_DARK.resolve(t))));
     }
 
-    /** A popup-style panel: framed, on the kit's dark content surface. */
-    public static final Consumer<Style> PANEL = s -> s.bg(SURFACE_2).border(1, OUTLINE).noShadow();
+    /**
+     * The kit's states for a list row drawn as a face in palette {@code p}: as on the sheet, a row lies flat, with no
+     * depth band, so pressing darkens it in place; hover lightens it and keyboard focus frames it in white.
+     */
+    public static void row(me.methodial.apothecary.sheet.Rules r, Palette p) { rowStates(r, p); }
+
+    /** A panel as on the sheet: framed, a light line along its top and left, a dark one along its right and bottom. */
+    public static final Consumer<Style> PANEL = s -> s.bg(SURFACE_2).border(1, OUTLINE).shadow(t -> List.of(
+            Shadow.inset(0, 1, 0, Color.hex("#5b5c5d")), Shadow.inset(1, 0, 0, Color.hex("#5b5c5d")),
+            Shadow.inset(-1, 0, 0, Color.hex("#3a3a3b")), Shadow.inset(0, -1, 0, Color.hex("#3a3a3b"))));
+    /** A dark field as on the sheet (its dropdowns): flat, a light line along its top and left, a dark one below. */
+    public static final Consumer<Style> FIELD = s -> s.apply(flatFace(DROPDOWN)).borderColor(OUTLINE);
+    /** A disabled control as on the sheet: the flat light grey face. */
+    public static final Consumer<Style> DISABLED_CONTROL = s -> s.bg(DISABLED_FACE.bg()).fg(DISABLED_FACE.text())
+            .opacity(1).untransformed().borderW(0).shadow(faceShadows(DISABLED_FACE, false, false, false, true));
     /** A raised row or card on a panel: a General Dark face without depth. */
     public static final Consumer<Style> RAISED = flatFace(GENERAL_DARK);
     /** A recessed well (fields, lists, item grids): framed, shaded along its top. */
@@ -262,7 +278,18 @@ public final class OreUI {
                 .active(s -> s.bg(p.pressed()).translateY(2).shadow(faceShadows(p, false, true, false, true)))
                 // The face draws the white focus frame; drop the default theme's accent outline.
                 .focusVisible(s -> s.shadow(faceShadows(p, true, false, true, true)).outline(0, SELECTION_FRAME))
-                .disabled(s -> s.bg(p.hover()).fg(alpha(p.text(), 0.5f)).opacity(1).untransformed()
+                // Disabled: the sheet's flat light grey face, whatever the palette.
+                .disabled(DISABLED_CONTROL);
+    }
+
+    /** One palette's states on the rules of a list row (or variant): flat, see {@link #row}. */
+    private static void rowStates(me.methodial.apothecary.sheet.Rules r, Palette p) {
+        r.style(s -> s.bg(p.bg()).fg(p.text()).borderW(0).shadow(faceShadows(p, false, false, false, true)))
+                .hover(s -> s.bg(p.hover()).shadow(faceShadows(p, false, true, false, true)))
+                .refine(sel -> sel.focusVisible().hover(), v -> v.style(s -> s.shadow(faceShadows(p, false, true, true, true))))
+                .active(s -> s.bg(p.pressed()).shadow(faceShadows(p, false, true, false, true)))
+                .focusVisible(s -> s.shadow(faceShadows(p, false, false, true, true)).outline(0, SELECTION_FRAME))
+                .disabled(s -> s.fg(alpha(p.text(), 0.5f)).opacity(1).untransformed()
                         .shadow(faceShadows(p, false, false, false, true)));
     }
 
@@ -273,8 +300,9 @@ public final class OreUI {
             r.style(s -> s.row().center().gap(4).pad(6, 9).m(1, 1, 3, 1).radius(0).fontSize(9).lineHeight(1).regular().pointer().noShrink()
                     .transition(Tr.colors(0.06f), Tr.transform(0.05f, OUT), Tr.opacity(FAST)));
             buttonStates(r, GENERAL);
-            r.variant("primary", v -> buttonStates(v, COLORED));
-            r.variant("success", v -> buttonStates(v, COLORED));
+            // Green buttons carry their label in bold capitals with a shadow, as on the sheet.
+            r.variant("primary", v -> { buttonStates(v, COLORED); v.style(s -> s.bold().upper().textShadow(true)); });
+            r.variant("success", v -> { buttonStates(v, COLORED); v.style(s -> s.bold().upper().textShadow(true)); });
             r.variant("dark", v -> buttonStates(v, GENERAL_DARK));
             r.variant("warning", v -> buttonStates(v, WARNING));
             r.variant("gold", v -> buttonStates(v, WARNING));
@@ -297,18 +325,15 @@ public final class OreUI {
     }
 
     private static void controls(Sheet sheet) {
-        // Text field: frame, dark well, a 2 px shade along its top; focus frames it in white.
-        // Every state re-applies the well: the default theme underneath recolors the frame on hover and swaps the
-        // top shade for a ring on focus, and an inset shade drawn over a colored frame breaks its top edge. Hover
-        // lightens the well instead; focus adds the white frame.
+        // Text field: the sheet's dark field, flat, a light line along its top and left; focus frames it in white.
+        // Every state re-applies the field: the default theme underneath recolors the frame on hover and swaps the
+        // lines for a ring on focus. Hover lightens the field instead; focus adds the white frame.
         sheet.on("textfield", r -> r
-                // 25 high: the text centers in the well below its 2 px top shade.
-                .style(s -> s.minW(60).h(25).padX(6).radius(0).apply(WELL).fg(TEXT))
-                .hover(s -> s.apply(WELL).bg(WELL_HOVER))
-                .focus(s -> s.apply(WELL).outline(1, SELECTION_FRAME, 0))
-                .disabled(s -> s.bg(Colors.hex("#c2c4c6")).borderColor(DISABLED).fg(Colors.hex("#3f4143"))
-                        .bevel(2, Colors.hex("#8f9194"), 0, Colors.TRANSPARENT).opacity(1))
-                .variantStyle("invalid", s -> s.apply(WELL).borderColor(DANGER)));
+                .style(s -> s.minW(60).h(25).padX(6).radius(0).apply(FIELD).fg(TEXT))
+                .hover(s -> s.apply(FIELD).bg(DROPDOWN.hover()))
+                .focus(s -> s.apply(FIELD).outline(1, SELECTION_FRAME, 0))
+                .disabled(DISABLED_CONTROL)
+                .variantStyle("invalid", s -> s.apply(FIELD).outline(1, DANGER, 0)));
         sheet.rule(cls("textarea"), s -> s.h(Length.AUTO).padY(5));
 
         // Checkbox: a well; checked, the pressed green face with a white check.
@@ -367,11 +392,12 @@ public final class OreUI {
                 .partStyle("progress-fill", s -> s.radius(0).bg(COLORED.bg())
                         .shadow(t -> List.of(Shadow.inset(-1, 0, 0, COLORED.stroke().resolve(t)), Shadow.inset(0, 1, 0, COLORED.secondary().resolve(t))))));
 
-        // Dropdowns use the General Dark face; menus are panels.
+        // Dropdowns are the sheet's dark field, flat like rows; menus are panels.
         sheet.on("select", r -> {
-            r.style(s -> s.h(Length.AUTO).pad(5, 5, 5, 7).m(1, 1, 3, 1).radius(0));
-            buttonStates(r, DROPDOWN);
-            r.open(s -> s.shadow(faceShadows(DROPDOWN, true, false, true, true)));
+            r.style(s -> s.h(Length.AUTO).pad(5, 5, 5, 7).m(1).radius(0));
+            rowStates(r, DROPDOWN);
+            r.disabled(DISABLED_CONTROL);
+            r.open(s -> s.shadow(faceShadows(DROPDOWN, false, false, true, true)));
         });
         sheet.on("menu", r -> r.style(s -> s.radius(0).apply(PANEL).pad(2)));
         sheet.on("menu-item", r -> r
