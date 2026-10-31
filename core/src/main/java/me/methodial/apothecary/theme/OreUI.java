@@ -42,12 +42,12 @@ public final class OreUI {
 
     // ------------------------------------------------------------------ metrics, as measured on the design sheet
 
-    /** The depth band under a raised face (buttons, knobs), in units. */
-    public static final float DEPTH = 3;
-    /** A button's face, its edge lines included: 8 above and below the 9-unit text line. */
-    public static final float BUTTON_HEIGHT = 25;
-    /** Text fields and dropdowns, their edge lines included. */
-    public static final float FIELD_HEIGHT = 28;
+    /** The depth band under a raised face (buttons, knobs), in units: the kit's 8 px at 4 px a unit. */
+    public static final float DEPTH = 2;
+    /** A button's face, its edge lines included: the kit's 89 px. */
+    public static final float BUTTON_HEIGHT = 22;
+    /** Text fields, frame included: the kit's Textbox, 126 px. */
+    public static final float FIELD_HEIGHT = 31;
     /** The checkbox and radio diamond: a square this size turned 45 degrees, 15 across. */
     public static final float DIAMOND = 10.5f;
 
@@ -73,8 +73,6 @@ public final class OreUI {
     public static final Token<Color> WELL_SHADE = Token.of("ore-well-shade", Color.hex("#242425"));
     /** A hovered well: text fields lighten under the pointer while the frame and top shade stay. */
     public static final Token<Color> WELL_HOVER = Token.of("ore-well-hover", Color.hex("#3e3f41"));
-    /** Dialog header and footer bars (the kit's dark hover shade, kept when hovered faces got lighter). */
-    private static final Token<Color> DIALOG_BAR = Token.of("ore-dialog-bar", Color.hex("#585959"));
     /** Overlays behind panels, menus and popups. */
     public static final Token<Color> OVERLAY_PANEL = Token.of("ore-overlay-panel", Color.hex("#00000066"));
     public static final Token<Color> OVERLAY_MENU = Token.of("ore-overlay-menu", Color.hex("#00000080"));
@@ -101,21 +99,37 @@ public final class OreUI {
         }
     }
 
-    // Colored, General and General Dark follow the Harmoniya design system sheet: hovered faces get lighter (the
-    // kit darkened Colored and General on hover), pressed ones darker. General Dark is the sheet's list-row face, a light
-    // line along its top and a dark one along its bottom; its hover, which the sheet does not show, lightens it the same way.
-    public static final Palette COLORED = Palette.of("colored", "#3c8527", "#52a535", "#2a641c", "#50913d", "#68b54d",
-            "#ffffff33", "#ffffff33", "#1d4d13", "#ffffff");
-    public static final Palette GENERAL = Palette.of("general", "#d0d1d4", "#f4f6f9", "#b1b2b5", "#e4e4e6", "#ffffff",
-            "#ffffff33", "#ffffff66", "#58585a", "#0c0c0d");
-    public static final Palette GENERAL_DARK = Palette.of("general-dark", "#48494a", "#5e5f61", "#3a3b3c", "#343435", "#3e3f40",
-            "#727273", "#808183", "#2a2b2b", "#ffffff");
-    /** The sheet's dropdown face: the well's dark grey, a light line along its top and a dark one along its bottom. */
-    public static final Palette DROPDOWN = Palette.of("dropdown", "#313233", "#3c3d3f", "#2a2b2c", "#222324", "#2a2b2c",
-            "#5e6061", "#6b6d6e", "#1e1e1f", "#ffffff");
-    /** The sheet's disabled control: a flat light grey face with a grey bottom line and grey text, whatever its color. */
-    public static final Palette DISABLED_FACE = Palette.of("disabled", "#d0d1d4", "#d0d1d4", "#d0d1d4", "#98999c", "#98999c",
-            "#d9dadc", "#d9dadc", "#58585a", "#3e3f40");
+    // The kit's color sets, token for token. Hovered and pressed faces are darker, as in the kit.
+    public static final Palette COLORED = Palette.of("colored", "#387e24", "#275b1a", "#1c4a12", "#50913d", "#6b935f",
+            "#ffffff33", "#ffffff66", "#1d4d13", "#ffffff");
+    public static final Palette GENERAL = Palette.of("general", "#d0d1d5", "#b1b2b6", "#b1b2b6", "#e3e3e5", "#e3e3e5",
+            "#ffffff33", "#ffffff33", "#59595b", "#1e1e20");
+    /** The kit's navigation buttons (NavigationButtonsHorizontal). */
+    public static final Palette GENERAL_DARK = Palette.of("general-dark", "#515453", "#585959", "#585959", "#636562", "#636562",
+            "#ffffff33", "#ffffff33", "#59595b", "#ffffff");
+    /** A selected navigation button: sunk, without depth, darker, with a white line under its label. */
+    public static final Palette GENERAL_DARK_SELECTED = Palette.of("general-dark-selected", "#373a39", "#444545", "#444545",
+            "#4b4e4c", "#4b4e4c", "#ffffff33", "#ffffff33", "#373a39", "#ffffff");
+    /**
+     * The kit's cards and pagination items: flat, a light line along the top and left and a dark one along the right
+     * and bottom; darker when hovered.
+     */
+    public static final Palette CARD = Palette.of("card", "#48494a", "#2f2f2f", "#2f2f2f", "#373737", "#262626",
+            "#6d6d6e", "#3f3f3f", "#373737", "#ffffff");
+    /** A selected card. */
+    public static final Palette CARD_SELECTED = Palette.of("card-selected", "#6d6d6e", "#6d6d6e", "#6d6d6e", "#8e8e91", "#8e8e91",
+            "#b1b2b5", "#b1b2b5", "#373737", "#ffffff");
+    /** Popup header and action bars. */
+    public static final Palette POPUP_BAR = Palette.of("popup-bar", "#585959", "#585959", "#585959", "#636562", "#636562",
+            "#ffffff33", "#ffffff33", "#373a39", "#ffffff");
+    /** Dropdowns: the text box's well, its dark line along the top. */
+    public static final Palette DROPDOWN = Palette.of("dropdown", "#313233", "#3c3d3f", "#2a2b2c", "#313233", "#3c3d3f",
+            "#242425", "#242425", "#1e1e1f", "#ffffff");
+    /** The kit's disabled text box: a light well in a grey frame, with grey text. */
+    public static final Palette DISABLED_FACE = Palette.of("disabled", "#c2c4c6", "#c2c4c6", "#c2c4c6", "#c2c4c6", "#c2c4c6",
+            "#8f9194", "#8f9194", "#5a5a5a", "#3f4143");
+    /** The popup body. */
+    public static final Token<Color> POPUP_BG = Token.of("ore-popup-content", Color.hex("#373a39"));
     public static final Palette WARNING = Palette.of("warning", "#e1b922", "#c09a0d", "#c09a0d", "#e7c85b", "#e7c85b",
             "#ffffff33", "#ffffff33", "#b87919", "#1e1e20");
     public static final Palette DESTRUCTIVE = Palette.of("destructive", "#c93636", "#c02d2d", "#ad1d1d", "#d04a4b", "#d98180",
@@ -142,9 +156,9 @@ public final class OreUI {
                     .set(TEXT_FAINT, Color.hex("#ffffff73"))
                     .set(HOVER_TINT, Color.hex("#ffffff14"))
                     .set(PRESS_TINT, Color.hex("#ffffff22"))
-                    .set(ACCENT, Color.hex("#3c8527"))
-                    .set(ACCENT_HOVER, Color.hex("#52a535"))
-                    .set(ACCENT_PRESS, Color.hex("#2a641c"))
+                    .set(ACCENT, Color.hex("#387e24"))
+                    .set(ACCENT_HOVER, Color.hex("#275b1a"))
+                    .set(ACCENT_PRESS, Color.hex("#1c4a12"))
                     .set(ACCENT_SOFT, Color.hex("#9ddf7733"))
                     .set(ACCENT_TEXT, Color.hex("#ffffff"))
                     .set(ACCENT_2, Color.hex("#9ddf77"))
@@ -236,12 +250,15 @@ public final class OreUI {
      */
     public static void row(me.methodial.apothecary.sheet.Rules r, Palette p) { rowStates(r, p); }
 
-    /** A panel as on the sheet: framed, a light line along its top and left, a dark one along its right and bottom. */
-    public static final Consumer<Style> PANEL = s -> s.bg(SURFACE_2).border(1, OUTLINE).shadow(t -> List.of(
-            Shadow.inset(0, 1, 0, Color.hex("#5b5c5d")), Shadow.inset(1, 0, 0, Color.hex("#5b5c5d")),
-            Shadow.inset(-1, 0, 0, Color.hex("#3a3a3b")), Shadow.inset(0, -1, 0, Color.hex("#3a3a3b"))));
-    /** A dark field as on the sheet (its dropdowns): flat, a light line along its top and left, a dark one below. */
-    public static final Consumer<Style> FIELD = s -> s.apply(flatFace(DROPDOWN)).borderColor(OUTLINE);
+    /** A panel as the kit's popup body: framed, flat. */
+    public static final Consumer<Style> PANEL = s -> s.bg(POPUP_BG).border(1, OUTLINE).noShadow();
+    /** A recessed well (fields, lists, item grids): framed, shaded along its top. */
+    public static final Consumer<Style> WELL = s -> s.bg(WELL_BG).border(1, OUTLINE).bevel(2, WELL_SHADE, 0, Colors.TRANSPARENT);
+    /** The kit's text box: the well, its 1-unit frame and 2-unit shade along the top. */
+    public static final Consumer<Style> FIELD = s -> s.apply(WELL).noShadow();
+    /** The kit's disabled text box. */
+    public static final Consumer<Style> FIELD_DISABLED = s -> s.bg(DISABLED_FACE.bg()).fg(DISABLED_FACE.text()).opacity(1)
+            .border(1, DISABLED_FACE.shadow()).bevel(2, DISABLED_FACE.secondary(), 0, Colors.TRANSPARENT).noShadow();
     /** A diamond's face and the rim just inside its frame. */
     private record Diamond(Color face, Color rim) {
         Diamond(String face, String rim) { this(Color.hex(face), Color.hex(rim)); }
@@ -276,13 +293,10 @@ public final class OreUI {
             .fg(Color.TRANSPARENT).shadow(t -> List.of(Shadow.inset(-1, 0, 0, Color.hex("#d0d2d5")),
                     Shadow.inset(0, -1, 0, Color.hex("#d0d2d5"))));
 
-    /** A disabled control as on the sheet: the flat light grey face. */
-    public static final Consumer<Style> DISABLED_CONTROL = s -> s.bg(DISABLED_FACE.bg()).fg(DISABLED_FACE.text())
-            .opacity(1).untransformed().borderW(0).shadow(faceShadows(DISABLED_FACE, false, false, false, true));
-    /** A raised row or card on a panel: a General Dark face without depth. */
-    public static final Consumer<Style> RAISED = flatFace(GENERAL_DARK);
-    /** A recessed well (fields, lists, item grids): framed, shaded along its top. */
-    public static final Consumer<Style> WELL = s -> s.bg(WELL_BG).border(1, OUTLINE).bevel(2, WELL_SHADE, 0, Colors.TRANSPARENT);
+    /** A disabled control: the kit's disabled text box. */
+    public static final Consumer<Style> DISABLED_CONTROL = s -> s.apply(FIELD_DISABLED).untransformed();
+    /** A raised row or card on a panel: the kit's card face. */
+    public static final Consumer<Style> RAISED = flatFace(CARD);
     /** The kit's focus: a white frame. */
     public static final Consumer<Style> FOCUS = s -> s.outline(1, SELECTION_FRAME, 0);
 
@@ -330,8 +344,9 @@ public final class OreUI {
                 .active(s -> s.bg(p.pressed()).translateY(DEPTH).shadow(faceShadows(p, false, true, false, true)))
                 // The face draws the white focus frame; drop the default theme's accent outline.
                 .focusVisible(s -> s.shadow(faceShadows(p, true, false, true, true)).outline(0, SELECTION_FRAME))
-                // Disabled: the sheet's flat light grey face, whatever the palette.
-                .disabled(DISABLED_CONTROL);
+                // Disabled: as the kit, the hover face without depth, its label at half strength.
+                .disabled(s -> s.bg(p.hover()).fg(alpha(p.text(), 0.5f)).opacity(1).untransformed()
+                        .shadow(faceShadows(p, false, false, false, true)));
     }
 
     /** One palette's states on the rules of a list row (or variant): flat, see {@link #row}. */
@@ -349,7 +364,7 @@ public final class OreUI {
         sheet.on("button", r -> {
             // The frame and depth are drawn outside the box: margins keep neighbours clear of them.
             // 9 px text like all other text; symmetric padding centers the capitals in the face between its strokes.
-            r.style(s -> s.row().center().gap(4).pad(8, 9).m(1, 1, 4, 1).radius(0).fontSize(9).lineHeight(1).regular().pointer().noShrink()
+            r.style(s -> s.row().center().gap(4).pad(7, 9, 6, 9).m(1, 1, 1 + DEPTH, 1).radius(0).fontSize(9).lineHeight(1).regular().pointer().noShrink()
                     .transition(Tr.colors(0.06f), Tr.transform(0.05f, OUT), Tr.opacity(FAST)));
             buttonStates(r, GENERAL);
             // Green buttons carry their label in bold capitals with a shadow, as on the sheet.
@@ -377,14 +392,13 @@ public final class OreUI {
     }
 
     private static void controls(Sheet sheet) {
-        // Text field: the sheet's dark field, flat, a light line along its top and left; focus frames it in white.
-        // Every state re-applies the field: the default theme underneath recolors the frame on hover and swaps the
-        // lines for a ring on focus. Hover lightens the field instead; focus adds the white frame.
+        // Text field: the kit's Textbox, a dark well shaded along its top; focus frames it in white. Every state
+        // re-applies the field: the default theme underneath recolors the frame on hover and adds a ring on focus.
         sheet.on("textfield", r -> r
-                .style(s -> s.minW(60).h(FIELD_HEIGHT).padX(8).radius(0).apply(FIELD).fg(TEXT))
-                .hover(s -> s.apply(FIELD).bg(DROPDOWN.hover()))
+                .style(s -> s.minW(60).h(FIELD_HEIGHT).padX(6).radius(0).apply(FIELD).fg(TEXT))
+                .hover(FIELD)
                 .focus(s -> s.apply(FIELD).outline(1, SELECTION_FRAME, 0))
-                .disabled(DISABLED_CONTROL)
+                .disabled(FIELD_DISABLED)
                 .variantStyle("invalid", s -> s.apply(FIELD).outline(1, DANGER, 0)));
         sheet.rule(cls("textarea"), s -> s.h(Length.AUTO).padY(5));
 
@@ -451,14 +465,16 @@ public final class OreUI {
                 .partStyle("progress-fill", s -> s.radius(0).bg(COLORED.bg())
                         .shadow(t -> List.of(Shadow.inset(-1, 0, 0, COLORED.stroke().resolve(t)), Shadow.inset(0, 1, 0, COLORED.secondary().resolve(t))))));
 
-        // Dropdowns are the sheet's dark field, flat like rows; menus are panels.
+        // Dropdowns are text boxes with a chevron; menus are panels.
         sheet.on("select", r -> {
-            r.style(s -> s.h(FIELD_HEIGHT).pad(0, 8).m(1).radius(0));
-            rowStates(r, DROPDOWN);
-            r.disabled(DISABLED_CONTROL);
-            // The sheet's chevron: 9 across, a one-unit line.
+            r.style(s -> s.h(FIELD_HEIGHT).pad(0, 6).m(0).radius(0).apply(FIELD).fg(TEXT))
+                    .hover(s -> s.apply(FIELD).bg(DROPDOWN.hover()))
+                    .active(FIELD)
+                    .focusVisible(s -> s.apply(FIELD).outline(1, SELECTION_FRAME, 0))
+                    .disabled(FIELD_DISABLED);
+            // A 9-across chevron in a one-unit line.
             r.partCls("select-arrow", a -> a.style(s -> s.fontSize(18).stroke(1.4f)));
-            r.open(s -> s.shadow(faceShadows(DROPDOWN, false, false, true, true)));
+            r.open(s -> s.apply(FIELD).outline(1, SELECTION_FRAME, 0));
         });
         sheet.on("menu", r -> r.style(s -> s.radius(0).apply(PANEL).pad(2)));
         sheet.on("menu-item", r -> r
@@ -471,7 +487,7 @@ public final class OreUI {
         sheet.on("tab", r -> r
                 .style(s -> s.pad(5, 9, 6, 9).fg(TEXT).bg(GENERAL_DARK.bg()))
                 .hover(s -> s.bg(GENERAL_DARK.hover()))
-                .selected(s -> s.bg(GENERAL_DARK.pressed())));
+                .selected(s -> s.bg(GENERAL_DARK_SELECTED.bg())));
         sheet.style("tab-indicator", s -> s.h(2).radius(0).bg(COLORED.stroke()));
         sheet.style("segmented", s -> s.radius(0).bg(OUTLINE).border(1, OUTLINE).pad(1));
         sheet.style("segment-pill", s -> s.radius(0).apply(flatFace(GENERAL_DARK)));
@@ -494,11 +510,11 @@ public final class OreUI {
         }
         sheet.rule(cls("tooltip-step").in(cls("below")), s -> s.hidden());
         sheet.rule(cls("modal-backdrop"), s -> s.bg(OVERLAY_POPUP));
-        // Popups: a General Dark header, the dark content surface, an action strip.
+        // Popups as the kit's: a raised header bar with the centered title, the dark body, a raised action bar.
         sheet.style("dialog", s -> s.radius(0).apply(PANEL));
-        sheet.style("dialog-header", s -> s.apply(flatFace(GENERAL_DARK)).bg(DIALOG_BAR).pad(5, 6, 5, 8));
+        sheet.style("dialog-header", s -> s.apply(flatFace(POPUP_BAR)).pad(7, 7));
         sheet.rule(cls("dialog-title"), s -> s.fontSize(9).regular().textCenter());
-        sheet.style("dialog-footer", s -> s.radius(0).borderTop(1, GENERAL_DARK.secondary()).bg(DIALOG_BAR));
+        sheet.style("dialog-footer", s -> s.radius(0).apply(flatFace(POPUP_BAR)).pad(6, 4));
         sheet.rule(cls("dialog-text"), s -> s.fg(TEXT_DIM));
         sheet.on("toast", r -> r.style(s -> s.radius(0).apply(PANEL)));
         sheet.style("toast-timer", s -> s.radius(0));

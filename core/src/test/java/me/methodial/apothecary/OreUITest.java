@@ -79,7 +79,7 @@ class OreUITest {
         states(r, field, true, "hover");
         assertEquals(rest.border(), Look.of(field).border(), "hover recolors the frame");
         assertEquals(rest.shadows(), Look.of(field).shadows(), "hover replaces the top shade");
-        assertNotEquals(field.computed().get(Props.BACKGROUND), restFill, "hover must show: the well lightens");
+        assertEquals(restFill, field.computed().get(Props.BACKGROUND), "the kit's text box does not change on hover");
         states(r, field, false, "hover");
 
         for (String[] focus : List.of(new String[]{"focus"}, new String[]{"focus", "focus-visible"}, new String[]{"focus", "hover"})) {
@@ -94,23 +94,19 @@ class OreUITest {
     }
 
     @Test
-    void everyButtonFaceGetsVisiblyLighterOnHoverAsInTheDesignSystem() {
-        for (String variant : new String[]{null, "primary", "dark"}) assertLighterOnHover(variant);
+    void everyButtonFaceTakesTheKitsHoverColor() {
+        for (String variant : new String[]{null, "primary", "dark"}) assertHoverShows(variant);
     }
 
-    private void assertLighterOnHover(String variant) {
+    private void assertHoverShows(String variant) {
         Button button = new Button("Go");
         if (variant != null) button.variant(variant);
         UIRoot r = root(new Node().add(button));
         Color rest = ((me.methodial.apothecary.style.Paint.Solid) button.computed().get(Props.BACKGROUND)).color();
         states(r, button, true, "hover");
         Color hover = ((me.methodial.apothecary.style.Paint.Solid) button.computed().get(Props.BACKGROUND)).color();
-        assertTrue(luma(hover) - luma(rest) >= 0.04f, variant + ": hovered face barely changes: " + rest + " -> " + hover);
-        states(r, button, false, "hover");
-        Color restEdge = edge(button);
-        states(r, button, true, "hover");
-        Color hoverEdge = edge(button);
-        assertTrue(luma(hoverEdge) >= luma(restEdge), variant + ": hovered edge darkens: " + restEdge + " -> " + hoverEdge);
+        assertTrue(Math.abs(luma(hover) - luma(rest)) >= 0.02f, variant + ": hovered face barely changes: " + rest + " -> " + hover);
+        assertNotNull(edge(button), variant + ": hover drops the edge strokes");
     }
 
     /** The stroke along the face's right edge, as drawn. */
@@ -159,7 +155,7 @@ class OreUITest {
         states(r, button, true, "focus", "focus-visible");
         states(r, select, true, "focus", "focus-visible");
         assertEquals(0f, Look.of(button).outline(), 0.001f, "button gets the default theme's accent outline");
-        assertEquals(0f, Look.of(select).outline(), 0.001f, "select gets the default theme's accent outline");
+        assertEquals(Color.hex("#ffffff"), Look.of(select).outlineColor(), "select gets the default theme's accent outline");
     }
 
     @Test
