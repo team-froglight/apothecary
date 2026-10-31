@@ -581,7 +581,11 @@ public final class McCanvas implements Canvas {
         pose.pushPose();
         pose.mulPose(toMatrix(dm()));
         pose.translate(x, y, 0);
-        pose.scale(size / 16f, size / 16f, 1);
+        // Scale depth by the same amount as width and height (the device matrix scales only x and y): block models are
+        // lit from their normals, and a non-uniform scale skews them, which drew blocks with dark sides and a
+        // blown-out top whenever an item was drawn larger than 16 units.
+        float k = size / 16f;
+        pose.scale(k, k, k * dm().approxScale());
         g.renderItem(stack, 0, 0);
         if (decorations) g.renderItemDecorations(Minecraft.getInstance().font, stack, 0, 0);
         pose.popPose();
