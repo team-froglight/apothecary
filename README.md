@@ -59,7 +59,7 @@ dependencies {
 Java 21.
 
 ```
-./gradlew build                 # → neoforge/build/libs/apothecary-neoforge-1.21.1-0.1.6.jar
+./gradlew build                 # → neoforge/build/libs/apothecary-neoforge-1.21.1-0.1.7.jar
 ./gradlew :neoforge:runClient   # the showcase: /apothecary
 ./gradlew publishToMavenLocal   # for a sibling mod checkout, without GitHub credentials
 ```
