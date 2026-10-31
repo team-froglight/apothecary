@@ -214,6 +214,9 @@ public final class McCanvas implements Canvas {
     public void fillRects(float[] rects, int[] colors, int count) {
         if (count <= 0 || opacity <= 0.001f) return;
         g.flush();
+        // Painted back to front, so later fills simply cover earlier ones: no depth test. Vanilla text sits a little in front
+        // of 0 and writes depth, so with the test on, a tooltip's box drawn later let earlier text (a stack count) show through.
+        RenderSystem.disableDepthTest();
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.disableCull();
@@ -231,6 +234,7 @@ public final class McCanvas implements Canvas {
         }
         BufferUploader.drawWithShader(b.buildOrThrow());
         RenderSystem.enableCull();
+        RenderSystem.enableDepthTest();
     }
 
     private int fade(int argb) {
@@ -256,6 +260,8 @@ public final class McCanvas implements Canvas {
     private boolean begin(ShaderInstance sh) {
         if (sh == null) return false;
         g.flush();
+        // As in fillRects: shapes are painted back to front and must cover earlier text, whatever its depth.
+        RenderSystem.disableDepthTest();
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.disableCull();
@@ -267,6 +273,7 @@ public final class McCanvas implements Canvas {
     private void end() {
         RenderSystem.setShaderColor(1, 1, 1, 1);
         RenderSystem.enableCull();
+        RenderSystem.enableDepthTest();
     }
 
     /** Emits a quad: local corners (x, y) with matching uv, mapped through the current transform. */
