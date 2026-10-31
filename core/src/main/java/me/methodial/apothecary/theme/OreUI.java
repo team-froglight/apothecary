@@ -43,20 +43,20 @@ public final class OreUI {
     // ------------------------------------------------------------------ kit tokens
 
     /** The kit's "Background": the frame around every control, and the darkest surface. */
-    public static final Token<Color> OUTLINE = Token.of("ore-background", Color.hex("#1e1e25"));
+    public static final Token<Color> OUTLINE = Token.of("ore-background", Color.hex("#1e1e1f"));
     /** "Selection": the focus frame. */
     public static final Token<Color> SELECTION_FRAME = Token.of("ore-selection", Color.hex("#ffffff"));
     /** "Text/Text Highlight": highlights and money. */
     public static final Token<Color> GOLD = Token.of("ore-text-highlight", Color.hex("#d9af4e"));
     /** "Background Disabled": the frame of disabled fields. */
-    public static final Token<Color> DISABLED = Token.of("ore-background-disabled", Color.hex("#5a5a61"));
+    public static final Token<Color> DISABLED = Token.of("ore-background-disabled", Color.hex("#5a5a5a"));
     /** Text field well and its top shade. */
-    public static final Token<Color> WELL_BG = Token.of("ore-well", Color.hex("#313238"));
-    public static final Token<Color> WELL_SHADE = Token.of("ore-well-shade", Color.hex("#24242b"));
+    public static final Token<Color> WELL_BG = Token.of("ore-well", Color.hex("#313233"));
+    public static final Token<Color> WELL_SHADE = Token.of("ore-well-shade", Color.hex("#242425"));
     /** A hovered well: text fields lighten under the pointer while the frame and top shade stay. */
-    public static final Token<Color> WELL_HOVER = Token.of("ore-well-hover", Color.hex("#3e3f45"));
+    public static final Token<Color> WELL_HOVER = Token.of("ore-well-hover", Color.hex("#3e3f41"));
     /** Dialog header and footer bars (the kit's dark hover shade, kept when hovered faces got lighter). */
-    private static final Token<Color> DIALOG_BAR = Token.of("ore-dialog-bar", Color.hex("#58595f"));
+    private static final Token<Color> DIALOG_BAR = Token.of("ore-dialog-bar", Color.hex("#585959"));
     /** Overlays behind panels, menus and popups. */
     public static final Token<Color> OVERLAY_PANEL = Token.of("ore-overlay-panel", Color.hex("#00000066"));
     public static final Token<Color> OVERLAY_MENU = Token.of("ore-overlay-menu", Color.hex("#00000080"));
@@ -88,15 +88,15 @@ public final class OreUI {
     // line along its top and a dark one along its bottom; its hover, which the sheet does not show, lightens it the same way.
     public static final Palette COLORED = Palette.of("colored", "#3c8527", "#52a535", "#2a641c", "#50913d", "#68b54d",
             "#ffffff33", "#ffffff33", "#1d4d13", "#ffffff");
-    public static final Palette GENERAL = Palette.of("general", "#d0d1d5", "#f4f6f9", "#b1b2b6", "#e4e4e9", "#ffffff",
-            "#ffffff33", "#ffffff66", "#58585f", "#1e1e25");
-    public static final Palette GENERAL_DARK = Palette.of("general-dark", "#48494f", "#5e5f65", "#3a3b41", "#34343b", "#3e3f45",
-            "#727279", "#808187", "#2a2b31", "#ffffff");
+    public static final Palette GENERAL = Palette.of("general", "#d0d1d4", "#f4f6f9", "#b1b2b5", "#e4e4e6", "#ffffff",
+            "#ffffff33", "#ffffff66", "#58585a", "#1e1e20");
+    public static final Palette GENERAL_DARK = Palette.of("general-dark", "#48494a", "#5e5f61", "#3a3b3c", "#343435", "#3e3f40",
+            "#727273", "#808183", "#2a2b2b", "#ffffff");
     /** The sheet's dropdown face: the well's dark grey, a light line along its top and a dark one along its bottom. */
-    public static final Palette DROPDOWN = Palette.of("dropdown", "#313238", "#3c3d43", "#2a2b31", "#222329", "#2a2b31",
-            "#5e6066", "#6b6d73", "#1e1e25", "#ffffff");
+    public static final Palette DROPDOWN = Palette.of("dropdown", "#313233", "#3c3d3f", "#2a2b2c", "#222324", "#2a2b2c",
+            "#5e6061", "#6b6d6e", "#1e1e1f", "#ffffff");
     public static final Palette WARNING = Palette.of("warning", "#e1b922", "#c09a0d", "#c09a0d", "#e7c85b", "#e7c85b",
-            "#ffffff33", "#ffffff33", "#b87919", "#1e1e25");
+            "#ffffff33", "#ffffff33", "#b87919", "#1e1e20");
     public static final Palette DESTRUCTIVE = Palette.of("destructive", "#c93636", "#c02d2d", "#ad1d1d", "#d04a4b", "#d98180",
             "#ffffff33", "#ffffff66", "#ad1d1d", "#ffffff");
     public static final Palette REALMS = Palette.of("realms", "#7345e5", "#5d2cc6", "#4a1cac", "#8e4aeb", "#9242e2",
@@ -110,12 +110,12 @@ public final class OreUI {
         if (theme == null) {
             theme = Theme.of("Ore UI")
                     .set(BG, Color.hex("#23232a"))
-                    .set(SURFACE, Color.hex("#313238"))
-                    .set(SURFACE_2, Color.hex("#48494f"))
-                    .set(SURFACE_3, Color.hex("#48494f"))
-                    .set(SURFACE_HOVER, Color.hex("#58595f"))
-                    .set(BORDER, Color.hex("#1e1e25"))
-                    .set(BORDER_STRONG, Color.hex("#1e1e25"))
+                    .set(SURFACE, Color.hex("#313233"))
+                    .set(SURFACE_2, Color.hex("#48494a"))
+                    .set(SURFACE_3, Color.hex("#48494a"))
+                    .set(SURFACE_HOVER, Color.hex("#585959"))
+                    .set(BORDER, Color.hex("#1e1e1f"))
+                    .set(BORDER_STRONG, Color.hex("#1e1e1f"))
                     .set(TEXT, Color.hex("#ffffff"))
                     .set(TEXT_DIM, Color.hex("#ffffffbf"))
                     .set(TEXT_FAINT, Color.hex("#ffffff73"))
@@ -139,9 +139,9 @@ public final class OreUI {
                     .set(FONT, "minecraft")
                     .set(MONO, "minecraft")
                     .set(SELECTION, Color.hex("#ffffff55"))
-                    .set(PLACEHOLDER, Color.hex("#b1b2b6"))
+                    .set(PLACEHOLDER, Color.hex("#b1b2b5"))
                     .set(TOOLTIP_BG, Color.hex("#2e6be5"))
-                    .set(FIELD_FOCUS_BG, Color.hex("#313238"))
+                    .set(FIELD_FOCUS_BG, Color.hex("#313233"))
                     .set(SCROLLBAR, Color.hex("#ffffff40"))
                     .set(BACKDROP, Color.hex("#000000b2"));
         }
@@ -306,7 +306,7 @@ public final class OreUI {
                 .style(s -> s.minW(60).h(25).padX(6).radius(0).apply(WELL).fg(TEXT))
                 .hover(s -> s.apply(WELL).bg(WELL_HOVER))
                 .focus(s -> s.apply(WELL).outline(1, SELECTION_FRAME, 0))
-                .disabled(s -> s.bg(Colors.hex("#c2c4c8")).borderColor(DISABLED).fg(Colors.hex("#3f4147"))
+                .disabled(s -> s.bg(Colors.hex("#c2c4c6")).borderColor(DISABLED).fg(Colors.hex("#3f4143"))
                         .bevel(2, Colors.hex("#8f9194"), 0, Colors.TRANSPARENT).opacity(1))
                 .variantStyle("invalid", s -> s.apply(WELL).borderColor(DANGER)));
         sheet.rule(cls("textarea"), s -> s.h(Length.AUTO).padY(5));
@@ -325,8 +325,8 @@ public final class OreUI {
 
         // Switch: a framed track (green when on, gray when off) and a General button knob with its depth.
         sheet.on("switch", r -> r
-                .partStyle("switch-track", s -> s.size(25, 12).radius(0).pad(0).bg(Colors.hex("#8c8d93"))
-                        .border(1, Colors.hex("#a3a4aa")).outline(1, OUTLINE, 0))
+                .partStyle("switch-track", s -> s.size(25, 12).radius(0).pad(0).bg(Colors.hex("#8c8d90"))
+                        .border(1, Colors.hex("#a3a4a6")).outline(1, OUTLINE, 0))
                 .partStyle("switch-knob", s -> s.size(12, 11).mt(-1).radius(0).apply(face(GENERAL))
                         .transition(Tr.transform(0.12f, OUT), Tr.colors(0.08f)))
                 .when(HOVER, h -> h.partStyle("switch-knob", s -> s.bg(GENERAL.hover())))
@@ -349,7 +349,7 @@ public final class OreUI {
         // Slider: a green face up to the handle, a darkened General face after it, a General button handle.
         sheet.on("slider", r -> r
                 .style(s -> s.h(16))
-                .partStyle("slider-track", s -> s.h(6).radius(0).bg(Colors.hex("#8c8d93")).borderW(0)
+                .partStyle("slider-track", s -> s.h(6).radius(0).bg(Colors.hex("#8c8d90")).borderW(0)
                         .shadow(t -> List.of(new Shadow(0, 0, 0, 1, OUTLINE.resolve(t), false))))
                 .partStyle("slider-fill", s -> s.radius(0).apply(flatFace(COLORED)).noShadow()
                         .shadow(t -> List.of(Shadow.inset(-1, 0, 0, COLORED.stroke().resolve(t)), Shadow.inset(0, -1, 0, COLORED.stroke().resolve(t)),
