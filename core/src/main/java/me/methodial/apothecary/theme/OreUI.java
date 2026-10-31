@@ -284,12 +284,20 @@ public final class OreUI {
     /** A panel as the kit's popup body: framed, flat. */
     public static final Consumer<Style> PANEL = s -> s.bg(POPUP_BG).border(1, OUTLINE).noShadow();
     /** A recessed well (fields, lists, item grids): framed, shaded along its top. */
-    public static final Consumer<Style> WELL = s -> s.bg(WELL_BG).border(1, OUTLINE).bevel(2, WELL_SHADE, 0, Colors.TRANSPARENT);
+    public static final Consumer<Style> WELL = s -> s.bg(WELL_BG).border(1, OUTLINE).shadow(topShade(OUTLINE, WELL_SHADE));
+
+    /**
+     * A well's 2-unit shade under its top frame line. Inset shadows paint over the border, so the shade runs 3 deep
+     * and the frame's top line is laid back over it.
+     */
+    private static Ref<List<Shadow>> topShade(Ref<Color> frame, Ref<Color> shade) {
+        return t -> List.of(Shadow.inset(0, 3, 0, shade.resolve(t)), Shadow.inset(0, 1, 0, frame.resolve(t)));
+    }
     /** The kit's text box: the well, its 1-unit frame and 2-unit shade along the top. */
-    public static final Consumer<Style> FIELD = s -> s.apply(WELL).noShadow();
+    public static final Consumer<Style> FIELD = WELL;
     /** The kit's disabled text box. */
     public static final Consumer<Style> FIELD_DISABLED = s -> s.bg(DISABLED_FACE.bg()).fg(DISABLED_FACE.text()).opacity(1)
-            .border(1, DISABLED_FACE.shadow()).bevel(2, DISABLED_FACE.secondary(), 0, Colors.TRANSPARENT).noShadow();
+            .border(1, DISABLED_FACE.shadow()).shadow(topShade(DISABLED_FACE.shadow(), DISABLED_FACE.secondary()));
     /** A diamond's face and the rim just inside its frame. */
     private record Diamond(Color face, Color rim) {
         Diamond(String face, String rim) { this(Color.hex(face), Color.hex(rim)); }
