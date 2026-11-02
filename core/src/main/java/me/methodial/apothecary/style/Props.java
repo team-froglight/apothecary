@@ -133,6 +133,8 @@ public final class Props {
     public static final Prop<Boolean> SCROLLBAR_BLOCKY = register("scrollbar-blocky", false, true, PAINT, null);
     /** Seconds the smooth-scroll animation takes to settle; 0 = instant. */
     public static final Prop<Float> SCROLL_SMOOTHNESS = register("scroll-smoothness", 0.12f, true, PAINT, F);
+    /** Seconds the wheel's momentum takes to wear down to about a third: a notch glides on for about this long; 0 = no momentum. */
+    public static final Prop<Float> SCROLL_INERTIA = register("scroll-inertia", 0.16f, true, PAINT, F);
 
     // ---------------------------------------------------------------- text (mostly inherited)
 

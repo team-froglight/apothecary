@@ -787,8 +787,8 @@ public class UIRoot {
             boolean canY = n.scrollsY() && n.maxScrollY() > 0 && ((dy > 0 && n.scrollTargetY > 0) || (dy < 0 && n.scrollTargetY < n.maxScrollY()));
             boolean canX = n.scrollsX() && n.maxScrollX() > 0 && (dx != 0 || !n.scrollsY())
                     && (((dx != 0 ? dx : dy) > 0 && n.scrollTargetX > 0) || ((dx != 0 ? dx : dy) < 0 && n.scrollTargetX < n.maxScrollX()));
-            if (canY && dy != 0) { n.scrollBy(0, -dy * step); return true; }
-            if (canX) { n.scrollBy(-(dx != 0 ? dx : dy) * step, 0); return true; }
+            if (canY && dy != 0) { n.fling(0, -dy * step); return true; }
+            if (canX) { n.fling(-(dx != 0 ? dx : dy) * step, 0); return true; }
         }
         return false;
     }

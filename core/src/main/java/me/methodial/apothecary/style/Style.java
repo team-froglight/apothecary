@@ -273,6 +273,7 @@ public class Style {
         return set(Props.SCROLLBAR_BLOCKY, true);
     }
     public Style smoothScroll(float seconds) { return set(Props.SCROLL_SMOOTHNESS, seconds); }
+    public Style scrollInertia(float seconds) { return set(Props.SCROLL_INERTIA, seconds); }
 
     // ================================================================== background, border, shadow
 

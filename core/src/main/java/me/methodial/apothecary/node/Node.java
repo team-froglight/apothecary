@@ -86,6 +86,8 @@ public class Node implements Styleable {
 
     // ------------------------------------------------------------------ scroll
     float scrollX, scrollY, scrollTargetX, scrollTargetY;
+    /** The wheel's momentum, in units per second; friction (scroll-inertia) wears it down. */
+    private float flingX, flingY;
 
     // ------------------------------------------------------------------ paint & hit testing
     private Affine globalMatrix = Affine.IDENTITY;
@@ -535,6 +537,7 @@ public class Node implements Styleable {
 
     /** Scrolls smoothly (per scroll-smoothness) to the given offsets, clamped. */
     public void scrollTo(float sx, float sy) {
+        flingX = flingY = 0;
         scrollTargetX = Math.max(0, Math.min(maxScrollX(), sx));
         scrollTargetY = Math.max(0, Math.min(maxScrollY(), sy));
         if (root != null) root.requestFrame();
@@ -542,15 +545,47 @@ public class Node implements Styleable {
 
     public void scrollBy(float dx, float dy) { scrollTo(scrollTargetX + dx, scrollTargetY + dy); }
 
+    /**
+     * Scrolls by about {@code dx}, {@code dy} with momentum, as a wheel notch does: the list glides there and eases
+     * out. Notches in quick succession build on the glide, up to twice as far each, so a fast spin covers ground;
+     * one against the glide stops it first. Without scroll-inertia this is {@link #scrollBy}.
+     */
+    public void fling(float dx, float dy) {
+        float inertia = get(Props.SCROLL_INERTIA);
+        if (inertia <= 0) { scrollBy(dx, dy); return; }
+        flingX = push(flingX, dx / inertia);
+        flingY = push(flingY, dy / inertia);
+        if (root != null) root.requestFrame();
+    }
+
+    private static float push(float velocity, float impulse) {
+        if (impulse == 0) return velocity;
+        if (Math.signum(velocity) != Math.signum(impulse)) return impulse;
+        return velocity + impulse * (1 + Math.min(1, Math.abs(velocity / impulse) / 4));
+    }
+
     /** Jumps without animation. */
     public void setScroll(float sx, float sy) {
-        scrollTo(sx, sy);
+        scrollTo(sx, sy); // also ends any glide
         scrollX = scrollTargetX;
         scrollY = scrollTargetY;
     }
 
     private void updateScroll(float dt) {
-        if (!scrollsX() && !scrollsY()) { scrollX = scrollY = scrollTargetX = scrollTargetY = 0; return; }
+        if (!scrollsX() && !scrollsY()) { scrollX = scrollY = scrollTargetX = scrollTargetY = flingX = flingY = 0; return; }
+        if (flingX != 0 || flingY != 0) {
+            // The glide moves the target; it stops at an edge and fades once too slow to see.
+            float maxX = maxScrollX(), maxY = maxScrollY();
+            scrollTargetX += flingX * dt;
+            scrollTargetY += flingY * dt;
+            if (scrollTargetX <= 0 || scrollTargetX >= maxX) flingX = 0;
+            if (scrollTargetY <= 0 || scrollTargetY >= maxY) flingY = 0;
+            float decay = (float) Math.exp(-dt / Math.max(1e-3f, get(Props.SCROLL_INERTIA)));
+            flingX *= decay;
+            flingY *= decay;
+            if (Math.abs(flingX) < 4) flingX = 0;
+            if (Math.abs(flingY) < 4) flingY = 0;
+        }
         scrollTargetX = Math.max(0, Math.min(maxScrollX(), scrollTargetX));
         scrollTargetY = Math.max(0, Math.min(maxScrollY(), scrollTargetY));
         float smooth = get(Props.SCROLL_SMOOTHNESS);
