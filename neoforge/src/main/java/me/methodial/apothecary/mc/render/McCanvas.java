@@ -248,6 +248,17 @@ public final class McCanvas implements Canvas {
 
     // ================================================================== geometry helpers
 
+    /**
+     * Where local (x, y) lands in GUI units, snapped to a whole device pixel; null when {@code d} rotates or skews. A
+     * picture drawn from a snapped corner moves in whole pixels, so its texels keep their width as it slides, rather
+     * than some stretching a pixel while others shrink.
+     */
+    private static float[] snappedOrigin(Affine d, float x, float y) {
+        if (Math.abs(d.b()) >= 1e-5f || Math.abs(d.c()) >= 1e-5f) return null;
+        float gs = (float) Minecraft.getInstance().getWindow().getGuiScale();
+        return new float[] {Math.round(d.mapX(x, y) * gs) / gs, Math.round(d.mapY(x, y) * gs) / gs};
+    }
+
     private static Matrix4f toMatrix(Affine a) {
         return new Matrix4f().m00(a.a()).m01(a.b()).m10(a.c()).m11(a.d()).m30(a.tx()).m31(a.ty());
     }
@@ -592,8 +603,15 @@ public final class McCanvas implements Canvas {
             flushGui();
             PoseStack pose = g.pose();
             pose.pushPose();
-            pose.mulPose(toMatrix(dm()));
-            pose.translate(dst.x(), dst.y(), 0);
+            Affine d = dm();
+            float[] origin = snappedOrigin(d, dst.x(), dst.y());
+            if (origin != null) {
+                pose.translate(origin[0], origin[1], 0);
+                pose.scale(d.a(), d.d(), 1);
+            } else {
+                pose.mulPose(toMatrix(d));
+                pose.translate(dst.x(), dst.y(), 0);
+            }
             RenderSystem.enableBlend();
             RenderSystem.setShaderColor(tint.r(), tint.g(), tint.b(), a);
             g.blitSprite(rl, 0, 0, Math.max(1, Math.round(dst.width())), Math.max(1, Math.round(dst.height())));
@@ -608,10 +626,20 @@ public final class McCanvas implements Canvas {
         RenderSystem.defaultBlendFunc();
         Matrix4f pose = g.pose().last().pose();
         BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
-        float[] xs = {dst.x(), dst.x(), dst.right(), dst.right()}, ys = {dst.y(), dst.bottom(), dst.bottom(), dst.y()};
         float[] us = {u0, u0, u1, u1}, vs = {v0, v1, v1, v0};
-        for (int i = 0; i < 4; i++) {
-            b.addVertex(pose, dm().mapX(xs[i], ys[i]), dm().mapY(xs[i], ys[i]), 0).setUv(us[i], vs[i]).setColor(tint.r(), tint.g(), tint.b(), a);
+        Affine d = dm();
+        float[] origin = snappedOrigin(d, dst.x(), dst.y());
+        if (origin != null) {
+            // Whole device pixels wide and high, from a whole-pixel corner: a moving image keeps every texel's width.
+            float gs = (float) Minecraft.getInstance().getWindow().getGuiScale();
+            float w = Math.round(dst.width() * d.a() * gs) / gs, h = Math.round(dst.height() * d.d() * gs) / gs;
+            float[] xs = {origin[0], origin[0], origin[0] + w, origin[0] + w}, ys = {origin[1], origin[1] + h, origin[1] + h, origin[1]};
+            for (int i = 0; i < 4; i++) b.addVertex(pose, xs[i], ys[i], 0).setUv(us[i], vs[i]).setColor(tint.r(), tint.g(), tint.b(), a);
+        } else {
+            float[] xs = {dst.x(), dst.x(), dst.right(), dst.right()}, ys = {dst.y(), dst.bottom(), dst.bottom(), dst.y()};
+            for (int i = 0; i < 4; i++) {
+                b.addVertex(pose, d.mapX(xs[i], ys[i]), d.mapY(xs[i], ys[i]), 0).setUv(us[i], vs[i]).setColor(tint.r(), tint.g(), tint.b(), a);
+            }
         }
         BufferUploader.drawWithShader(b.buildOrThrow());
     }
@@ -622,13 +650,20 @@ public final class McCanvas implements Canvas {
         flushGui();
         PoseStack pose = g.pose();
         pose.pushPose();
-        pose.mulPose(toMatrix(dm()));
-        pose.translate(x, y, 0);
+        Affine d = dm();
         // Scale depth by the same amount as width and height (the device matrix scales only x and y): block models are
         // lit from their normals, and a non-uniform scale skews them, which drew blocks with dark sides and a
         // blown-out top whenever an item was drawn larger than 16 units.
         float k = size / 16f;
-        pose.scale(k, k, k * dm().approxScale());
+        float[] origin = snappedOrigin(d, x, y);
+        if (origin != null) {
+            pose.translate(origin[0], origin[1], 0);
+            pose.scale(d.a() * k, d.d() * k, k * d.approxScale());
+        } else {
+            pose.mulPose(toMatrix(d));
+            pose.translate(x, y, 0);
+            pose.scale(k, k, k * d.approxScale());
+        }
         g.renderItem(stack, 0, 0);
         if (decorations) g.renderItemDecorations(Minecraft.getInstance().font, stack, 0, 0);
         pose.popPose();
