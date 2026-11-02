@@ -210,6 +210,8 @@ public class UIRoot {
         if (scopeClosing()) restorePath = null;
         applyFocusRestore();
         syncFocusScope();
+        // A list that a rebuild took away for good ends its scrollbar drag.
+        if (scrollbarDrag != null && !scrollbarDrag.isAttached()) scrollbarDrag = null;
         // Content can move under a still cursor (scrolling, animation, layout changes): re-hit-test
         // every frame so :hover, enter/leave and tooltips stay truthful. Uses last frame's paint.
         if (mouseX >= 0 && pressed == null && scrollbarDrag == null) updateHover();
@@ -871,6 +873,12 @@ public class UIRoot {
 
     private void dragScrollbar() {
         Node n = scrollbarDrag;
+        // A rebuild detaches and re-attaches a kept list (see Region.keep), often mid-drag as the list reaches new
+        // rows; only a list that stayed gone ends the drag.
+        if (!n.isAttached()) {
+            scrollbarDrag = null;
+            return;
+        }
         float[] l = n.toLocal(mouseX, mouseY);
         if (scrollbarVertical) {
             float[] v = n.verticalThumb();
@@ -893,7 +901,6 @@ public class UIRoot {
         // Kept until the next event or frame: a rebuild may re-attach the same node (see Region.keep).
         if (focused == n) focusDetached = true;
         if (pressed == n || dragTarget == n) focusDetached = true;
-        if (scrollbarDrag == n) scrollbarDrag = null;
         hoverChain.remove(n);
         if (tooltipOwner == n) {
             tooltipOwner = null;
