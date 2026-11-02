@@ -266,6 +266,12 @@ public class Style {
     public Style scrollX() { values.put(Props.OVERFLOW_Y, Overflow.HIDDEN); return set(Props.OVERFLOW_X, Overflow.SCROLL); }
     public Style scrollbar(float width) { return set(Props.SCROLLBAR_WIDTH, width); }
     public Style scrollbar(float width, Ref<Color> color) { set(Props.SCROLLBAR_WIDTH, width); return set(Props.SCROLLBAR_COLOR, color); }
+    /** A square scrollbar: the thumb a raised block of {@code color}, framed, in a groove of {@code track}. */
+    public Style blockyScrollbar(float width, Ref<Color> color, Ref<Color> track) {
+        scrollbar(width, color);
+        set(Props.SCROLLBAR_TRACK_COLOR, track);
+        return set(Props.SCROLLBAR_BLOCKY, true);
+    }
     public Style smoothScroll(float seconds) { return set(Props.SCROLL_SMOOTHNESS, seconds); }
 
     // ================================================================== background, border, shadow

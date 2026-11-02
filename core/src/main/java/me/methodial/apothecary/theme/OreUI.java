@@ -350,7 +350,8 @@ public final class OreUI {
     public static Sheet build() {
         Sheet sheet = new Sheet("apothecary:ore-ui");
         // Minecraft's own line spacing: 9 rows per line, so every text box is a whole number of pixels.
-        sheet.rule(root(), s -> s.font(FONT).fontSize(9).lineHeight(1).fg(TEXT).scrollbar(3, SCROLLBAR));
+        // Scrollbars as Minecraft would draw them: square, a raised General Dark block in a dark groove.
+        sheet.rule(root(), s -> s.font(FONT).fontSize(9).lineHeight(1).fg(TEXT).blockyScrollbar(5, GENERAL_DARK.bg(), alpha(OUTLINE, 0.7f)));
 
         sheet.onCls("ore-panel", r -> r.style(PANEL));
         sheet.onCls("ore-raised", r -> r.style(RAISED));

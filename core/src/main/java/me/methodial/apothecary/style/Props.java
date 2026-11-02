@@ -129,6 +129,8 @@ public final class Props {
     public static final Prop<Color> SCROLLBAR_COLOR = register("scrollbar-color", Color.argb(110, 255, 255, 255), true, PAINT, C);
     public static final Prop<Color> SCROLLBAR_TRACK_COLOR = register("scrollbar-track-color", Color.TRANSPARENT, true, PAINT, C);
     public static final Prop<Float> SCROLLBAR_WIDTH = register("scrollbar-width", 4f, true, PAINT, F);
+    /** A square scrollbar drawn as a raised block in a dark groove, for blocky designs, instead of a rounded pill. */
+    public static final Prop<Boolean> SCROLLBAR_BLOCKY = register("scrollbar-blocky", false, true, PAINT, null);
     /** Seconds the smooth-scroll animation takes to settle; 0 = instant. */
     public static final Prop<Float> SCROLL_SMOOTHNESS = register("scroll-smoothness", 0.12f, true, PAINT, F);
 

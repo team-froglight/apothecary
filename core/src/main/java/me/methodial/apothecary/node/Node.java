@@ -705,6 +705,13 @@ public class Node implements Styleable {
         if (v == null && h == null) return;
         Color thumb = get(Props.SCROLLBAR_COLOR), track = get(Props.SCROLLBAR_TRACK_COLOR);
         boolean hot = root != null && (root.scrollbarDragNode() == this || hasState("hover"));
+        if (get(Props.SCROLLBAR_BLOCKY)) {
+            if (v != null) paintBlockyScrollbar(c, new Rect(v[0], borderEdges().top() + 2, v[2], height - borderEdges().vertical() - 4),
+                    new Rect(v[0], v[1], v[2], v[3]), thumb, track, hot);
+            if (h != null) paintBlockyScrollbar(c, new Rect(borderEdges().left() + 2, h[1], width - borderEdges().horizontal() - 4, h[3]),
+                    new Rect(h[0], h[1], h[2], h[3]), thumb, track, hot);
+            return;
+        }
         Color tc = hot ? thumb : thumb.multiplyAlpha(0.7f);
         if (v != null) {
             if (!track.isTransparent()) c.fillRoundRect(new Rect(v[0], borderEdges().top() + 2, v[2], height - borderEdges().vertical() - 4), v[2] / 2, Paint.of(track));
@@ -714,6 +721,22 @@ public class Node implements Styleable {
             if (!track.isTransparent()) c.fillRoundRect(new Rect(borderEdges().left() + 2, h[1], width - borderEdges().horizontal() - 4, h[3]), h[3] / 2, Paint.of(track));
             c.fillRoundRect(new Rect(h[0], h[1], h[2], h[3]), h[3] / 2, Paint.of(tc));
         }
+    }
+
+    /**
+     * A blocky scrollbar: a groove of {@code track} and the thumb as a raised block, framed in near-black, a light line
+     * along its top and left, a dark one along its bottom and right; lighter when hovered or dragged.
+     */
+    private static void paintBlockyScrollbar(Canvas c, Rect groove, Rect thumbBox, Color thumb, Color track, boolean hot) {
+        if (!track.isTransparent()) c.fillRect(groove, track);
+        Color face = hot ? thumb.lerp(Color.WHITE, 0.12f) : thumb;
+        c.fillRect(thumbBox.outset(1), Color.argb(255, 30, 30, 31));
+        c.fillRect(thumbBox, face);
+        Color light = Color.argb(70, 255, 255, 255), dark = Color.argb(90, 0, 0, 0);
+        c.fillRect(new Rect(thumbBox.x(), thumbBox.y(), thumbBox.width(), 1), light);
+        c.fillRect(new Rect(thumbBox.x(), thumbBox.y(), 1, thumbBox.height()), light);
+        c.fillRect(new Rect(thumbBox.x(), thumbBox.bottom() - 1, thumbBox.width(), 1), dark);
+        c.fillRect(new Rect(thumbBox.right() - 1, thumbBox.y(), 1, thumbBox.height()), dark);
     }
 
     private void paintOutline(Canvas c, Rect box) {
