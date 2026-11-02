@@ -63,7 +63,8 @@ public final class McCanvas implements Canvas {
         this.base = base;
     }
 
-    public GuiGraphics graphics() { return g; }
+    /** The vanilla graphics, for drawing in between: pending canvas shapes are drawn first, so they stay underneath. */
+    public GuiGraphics graphics() { flushCrisp(); return g; }
 
     /** Factor from root units to GUI units. */
     public float base() { return base; }
@@ -82,7 +83,7 @@ public final class McCanvas implements Canvas {
 
     /** Call when done drawing: flushes and releases the scissor. */
     public void finish() {
-        g.flush();
+        flushGui();
         if (!clips.isEmpty()) {
             clips.clear();
             RenderSystem.disableScissor();
@@ -118,7 +119,7 @@ public final class McCanvas implements Canvas {
     @Override public Rect clipBounds() { return clips.peek(); }
 
     private void applyScissor() {
-        g.flush();
+        flushGui();
         Rect r = clips.peek();
         if (r == null) {
             RenderSystem.disableScissor();
@@ -164,7 +165,7 @@ public final class McCanvas implements Canvas {
         while (LAYERS.size() <= depth) LAYERS.add(new TextureTarget(main.width, main.height, true, Minecraft.ON_OSX));
         TextureTarget layer = LAYERS.get(depth);
         if (layer.width != main.width || layer.height != main.height) layer.resize(main.width, main.height, Minecraft.ON_OSX);
-        g.flush();
+        flushGui();
         layer.setClearColor(0, 0, 0, 0);
         layer.clear(Minecraft.ON_OSX);
         layer.bindWrite(true);
@@ -178,7 +179,7 @@ public final class McCanvas implements Canvas {
     public void endGroup() {
         if (groups.isEmpty()) return;
         Group grp = groups.pop();
-        g.flush();
+        flushGui();
         grp.previous().bindWrite(true);
         opacity = grp.outerOpacity();
         RenderSystem.disableScissor();
@@ -213,7 +214,7 @@ public final class McCanvas implements Canvas {
     @Override
     public void fillRects(float[] rects, int[] colors, int count) {
         if (count <= 0 || opacity <= 0.001f) return;
-        g.flush();
+        flushGui();
         // Painted back to front, so later fills simply cover earlier ones: no depth test. Vanilla text sits a little in front
         // of 0 and writes depth, so with the test on, a tooltip's box drawn later let earlier text (a stack count) show through.
         RenderSystem.disableDepthTest();
@@ -259,7 +260,7 @@ public final class McCanvas implements Canvas {
     /** Begins a custom-shader draw: flushes vanilla batches and sets common state. */
     private boolean begin(ShaderInstance sh) {
         if (sh == null) return false;
-        g.flush();
+        flushGui();
         // As in fillRects: shapes are painted back to front and must cover earlier text, whatever its depth.
         RenderSystem.disableDepthTest();
         RenderSystem.enableBlend();
@@ -306,28 +307,39 @@ public final class McCanvas implements Canvas {
         return radii.isZero() && d.b() == 0 && d.c() == 0;
     }
 
-    /** Pending rects for {@link #flushCrisp}: x0, y0, x1, y1 in local units, one ARGB each. */
-    private float[] crispRects = new float[64];
-    private int[] crispColors = new int[32];
+    /**
+     * Pending rects for {@link #flushCrisp}: x0, y0, x1, y1 in GUI units (the canvas transform already applied), one
+     * ARGB each with the opacity applied. Square boxes, borders and shadows are most of a UI's shapes, so they wait
+     * here and go out in one draw call when anything else is drawn, the clip changes or the frame ends, rather than
+     * one call each.
+     */
+    private float[] crispRects = new float[256];
+    private int[] crispColors = new int[128];
     private int crispCount;
+    /** The vanilla pose the pending rects were recorded under; a rect under another pose draws the batch first. */
+    private final Matrix4f crispPose = new Matrix4f();
 
     private void crispRect(float x0, float y0, float x1, float y1, Color c) {
         if (x1 <= x0 || y1 <= y0 || c.isTransparent()) return;
+        Matrix4f pose = g.pose().last().pose();
+        if (crispCount > 0 && !crispPose.equals(pose)) flushCrisp();
+        if (crispCount == 0) crispPose.set(pose);
         if (crispCount * 4 + 4 > crispRects.length) {
             crispRects = java.util.Arrays.copyOf(crispRects, crispRects.length * 2);
             crispColors = java.util.Arrays.copyOf(crispColors, crispColors.length * 2);
         }
         // Snap each edge to the device pixel grid: neighbouring rects that share an edge snap to the same pixel.
-        Affine dev = deviceMatrix(), inv = dev.invert();
-        float ax = Math.round(dev.mapX(x0, y0)), ay = Math.round(dev.mapY(x0, y0));
-        float bx = Math.round(dev.mapX(x1, y1)), by = Math.round(dev.mapY(x1, y1));
+        float gs = (float) Minecraft.getInstance().getWindow().getGuiScale();
+        Affine d = dm();
+        float ax = Math.round(d.mapX(x0, y0) * gs), ay = Math.round(d.mapY(x0, y0) * gs);
+        float bx = Math.round(d.mapX(x1, y1) * gs), by = Math.round(d.mapY(x1, y1) * gs);
         if (bx <= ax || by <= ay) return;
         int i = crispCount * 4;
-        crispRects[i] = inv.mapX(ax, ay);
-        crispRects[i + 1] = inv.mapY(ax, ay);
-        crispRects[i + 2] = inv.mapX(bx, by);
-        crispRects[i + 3] = inv.mapY(bx, by);
-        crispColors[crispCount * 2] = crispColors[crispCount * 2 + 1] = c.argb();
+        crispRects[i] = ax / gs;
+        crispRects[i + 1] = ay / gs;
+        crispRects[i + 2] = bx / gs;
+        crispRects[i + 3] = by / gs;
+        crispColors[crispCount * 2] = crispColors[crispCount * 2 + 1] = fade(c.argb());
         crispCount++;
     }
 
@@ -342,11 +354,35 @@ public final class McCanvas implements Canvas {
         crispRect(bx1, by0, ax1, by1, c);      // right
     }
 
+    /** Draws the pending rects, after whatever vanilla had batched before them. */
     private void flushCrisp() {
         if (crispCount == 0) return;
         int n = crispCount;
         crispCount = 0;
-        fillRects(crispRects, crispColors, n);
+        g.flush();
+        RenderSystem.disableDepthTest();
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.disableCull();
+        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+        BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+        for (int i = 0; i < n; i++) {
+            float x0 = crispRects[i * 4], y0 = crispRects[i * 4 + 1], x1 = crispRects[i * 4 + 2], y1 = crispRects[i * 4 + 3];
+            int argb = crispColors[i * 2];
+            b.addVertex(crispPose, x0, y0, 0).setColor(argb);
+            b.addVertex(crispPose, x0, y1, 0).setColor(argb);
+            b.addVertex(crispPose, x1, y1, 0).setColor(argb);
+            b.addVertex(crispPose, x1, y0, 0).setColor(argb);
+        }
+        BufferUploader.drawWithShader(b.buildOrThrow());
+        RenderSystem.enableCull();
+        RenderSystem.enableDepthTest();
+    }
+
+    /** Draws everything pending, canvas shapes and vanilla's batches, in the order it was painted. */
+    private void flushGui() {
+        flushCrisp();
+        g.flush();
     }
 
     @Override
@@ -361,7 +397,6 @@ public final class McCanvas implements Canvas {
                 crispRect(r.x(), r.y() + b, r.x() + b, r.bottom() - b, borderColor);
                 crispRect(r.right() - b, r.y() + b, r.right(), r.bottom() - b, borderColor);
             }
-            flushCrisp();
             return;
         }
         ShaderInstance sh = ApothecaryShaders.roundedRect;
@@ -422,7 +457,6 @@ public final class McCanvas implements Canvas {
                 crispSubtract(r.x() + ox - sp, r.y() + oy - sp, r.right() + ox + sp, r.bottom() + oy + sp,
                         r.x(), r.y(), r.right(), r.bottom(), s.color());
             }
-            flushCrisp();
             return;
         }
         ShaderInstance sh = ApothecaryShaders.roundedRect;
@@ -486,7 +520,7 @@ public final class McCanvas implements Canvas {
         int argb = (Math.round(alpha * 255) << 24) | (color.argb() & 0xFFFFFF);
         McFonts.Family fam = McFonts.INSTANCE.family(spec);
         float guiScale = (float) Minecraft.getInstance().getWindow().getGuiScale();
-        g.flush();
+        flushGui();
         if (fam.isTtf()) {
             TtfText.Extent ext = TtfText.INSTANCE.draw(McFonts.INSTANCE.ttfRequest(fam, spec), text, x, y, dm(), guiScale,
                     g.pose().last().pose(), argb, shadow, fam.synthBold(spec.weight()), spec.italic());
@@ -509,6 +543,8 @@ public final class McCanvas implements Canvas {
      */
     public void drawVanilla(FormattedCharSequence seq, float x, float y, float fontSize, float letterSpacing, int argb, boolean shadow) {
         if ((argb >>> 24) < 5) return;
+        // Vanilla text is batched apart from the canvas: shapes painted before it must be drawn first, under it.
+        flushCrisp();
         Font font = Minecraft.getInstance().font;
         float guiScale = (float) Minecraft.getInstance().getWindow().getGuiScale();
         Affine d = dm();
@@ -553,7 +589,7 @@ public final class McCanvas implements Canvas {
         ResourceLocation rl = ResourceLocation.parse(image.location());
         float a = tint.a() * opacity;
         if (image.kind() == ImageRef.Kind.SPRITE) {
-            g.flush();
+            flushGui();
             PoseStack pose = g.pose();
             pose.pushPose();
             pose.mulPose(toMatrix(dm()));
@@ -565,7 +601,7 @@ public final class McCanvas implements Canvas {
             pose.popPose();
             return;
         }
-        g.flush();
+        flushGui();
         RenderSystem.setShaderTexture(0, rl);
         RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
         RenderSystem.enableBlend();
@@ -583,7 +619,7 @@ public final class McCanvas implements Canvas {
     /** Draws an item stack (with count/durability decorations) fitted into {@code size} px. */
     public void drawItem(ItemStack stack, float x, float y, float size, boolean decorations) {
         if (stack.isEmpty() || opacity <= 0.05f) return;
-        g.flush();
+        flushGui();
         PoseStack pose = g.pose();
         pose.pushPose();
         pose.mulPose(toMatrix(dm()));
@@ -604,14 +640,14 @@ public final class McCanvas implements Canvas {
      * draws over it, and re-applies the scissor in case vanilla changed it.
      */
     public void afterVanilla3D() {
-        g.flush();
+        flushGui();
         RenderSystem.clear(GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
         applyScissor();
     }
 
     /** Runs vanilla drawing code with the current transform applied to the pose stack. */
     public void withPose(Runnable r) {
-        g.flush();
+        flushGui();
         PoseStack pose = g.pose();
         pose.pushPose();
         pose.mulPose(toMatrix(dm()));
@@ -648,5 +684,5 @@ public final class McCanvas implements Canvas {
         return null;
     }
 
-    @Override public void flush() { g.flush(); }
+    @Override public void flush() { flushGui(); }
 }

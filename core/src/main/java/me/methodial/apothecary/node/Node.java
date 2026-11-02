@@ -564,6 +564,11 @@ public class Node implements Styleable {
         return velocity + impulse * (1 + Math.min(1, Math.abs(velocity / impulse) / 4));
     }
 
+    /** Whether the scroll position is still moving: gliding, or easing towards where it was sent. */
+    public boolean scrolling() {
+        return flingX != 0 || flingY != 0 || scrollX != scrollTargetX || scrollY != scrollTargetY;
+    }
+
     /** Jumps without animation. */
     public void setScroll(float sx, float sy) {
         scrollTo(sx, sy); // also ends any glide
