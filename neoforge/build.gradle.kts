@@ -55,6 +55,10 @@ repositories {
 
 dependencies {
     implementation(core)
+    // Core's one library, shipped inside the mod jar so the mod stays a single drop-in file.
+    implementation(libs.jsvg)
+    jarJar(libs.jsvg)
+    "additionalRuntimeClasspath"(libs.jsvg)
 
     // JEC: an MCP for the running game (inspection, rendering, hot-swap) in runClient. runtimeOnly, never bundled.
     runtimeOnly(libs.jec.neoforge)
@@ -81,7 +85,7 @@ sourceSets.main {
 }
 neoForge.ideSyncTask(generateModMetadata)
 
-// Published for mods that build on Apothecary: one jar (core + backend), no further dependencies.
+// Published for mods that build on Apothecary: one jar (core + backend, JSVG inside it jar-in-jar), no further dependencies.
 // Depend on me.methodial.apothecary:apothecary-neoforge and jarJar it. `./gradlew publishToMavenLocal`
 // for a local checkout; the Publish workflow runs `./gradlew publish` to GitHub Packages.
 publishing {
