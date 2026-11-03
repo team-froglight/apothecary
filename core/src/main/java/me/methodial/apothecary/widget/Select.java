@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * A dropdown picking one of several options. Structure: {@code select > text.select-label + icon.select-arrow};
+ * A dropdown picking one of several options. Structure: {@code select > text.select-label + pixel-icon.select-arrow};
  * the open list is a {@link Menu} with class {@code select-menu}; {@code select:open} while open.
  */
 public class Select<T> extends ValueWidget<T> {
@@ -19,6 +19,8 @@ public class Select<T> extends ValueWidget<T> {
 
     private final List<Option<T>> options = new ArrayList<>();
     private final Text label;
+    /** The pixel chevron: down while closed, up while the menu is open. */
+    private final PixelIcon arrow = new PixelIcon("chevron-down");
     private Menu menu;
     private String placeholder = "Select…";
 
@@ -27,7 +29,8 @@ public class Select<T> extends ValueWidget<T> {
         focusable(true);
         label = new Text(placeholder);
         label.cls("select-label");
-        add(label, new Icon("chevron-down").cls("select-arrow"));
+        arrow.cls("select-arrow");
+        add(label, arrow);
         onClick(this::toggle);
         on(EventType.KEY_DOWN, e -> {
             int idx = indexOf(value);
@@ -70,7 +73,8 @@ public class Select<T> extends ValueWidget<T> {
             if (Objects.equals(o.value, value)) menu.items().get(i).state("selected", true);
         }
         state("open", true);
-        r.showPopup(menu, this, UIRoot.Placement.BELOW, () -> { state("open", false); menu = null; });
+        arrow.name("chevron-up");
+        r.showPopup(menu, this, UIRoot.Placement.BELOW, () -> { state("open", false); arrow.name("chevron-down"); menu = null; });
         menu.focus();
         menu.highlight(indexOf(value));
         sound("open");

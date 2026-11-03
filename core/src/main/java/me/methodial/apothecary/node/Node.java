@@ -691,6 +691,7 @@ public class Node implements Styleable {
     private boolean overflowsVisibly() { return !clipsContent() && !children.isEmpty(); }
 
     protected void paintBackground(Canvas c, Rect box) {
+        if (current.get(Props.BACKDROP_BLUR)) c.blurBehind();
         Corners radii = current.radius().fit(width, height);
         List<Shadow> shadows = current.shadows();
         for (Shadow s : shadows) if (!s.inset() && !s.color().isTransparent()) c.drawShadow(box, radii, s);

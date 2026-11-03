@@ -229,9 +229,9 @@ public final class DefaultTheme {
                 .open(s -> s.borderColor(ACCENT))
                 .focusVisible(Mixins.FOCUS_RING)
                 .partCls("select-label", l -> l.style(s -> s.grow().apply(Mixins.TRUNCATE)))
-                .partCls("select-arrow", a -> a.style(s -> s.fontSize(8).fg(TEXT_DIM).transition(Tr.transform(0.22f, OUT))))
-                .when("placeholder", p -> p.partCls("select-label", l -> l.style(s -> s.fg(TEXT_FAINT))))
-                .when(OPEN, o -> o.partCls("select-arrow", a -> a.style(s -> s.rotate(180)))));
+                // The arrow is a pixel chevron; open, the select swaps it for the upward one.
+                .partCls("select-arrow", a -> a.style(s -> s.fontSize(8).fg(TEXT_DIM)))
+                .when("placeholder", p -> p.partCls("select-label", l -> l.style(s -> s.fg(TEXT_FAINT)))));
 
         sheet.on("menu", r -> r
                 .style(s -> s.col().pad(3).minW(80).maxH(160).scrollY().apply(Mixins.PANEL)

@@ -135,6 +135,8 @@ public final class Props {
     public static final Prop<Float> SCROLL_SMOOTHNESS = register("scroll-smoothness", 0.12f, true, PAINT, F);
     /** Seconds the wheel's momentum takes to wear down to about a third: a notch glides on for about this long; 0 = no momentum. */
     public static final Prop<Float> SCROLL_INERTIA = register("scroll-inertia", 0.16f, true, PAINT, F);
+    /** Blur what is already drawn behind the box before painting it (see {@link me.methodial.apothecary.render.Canvas#blurBehind}). */
+    public static final Prop<Boolean> BACKDROP_BLUR = register("backdrop-blur", false, false, PAINT, null);
 
     // ---------------------------------------------------------------- text (mostly inherited)
 

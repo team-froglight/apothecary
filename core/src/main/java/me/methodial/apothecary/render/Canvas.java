@@ -120,4 +120,10 @@ public interface Canvas {
 
     /** Flushes batched geometry so backend-specific drawing composites in order. */
     default void flush() { }
+
+    /**
+     * Blurs everything drawn so far, so what follows sits over a frosted backdrop. Whole-frame: meant for layers that
+     * cover the screen. Backends without blur do nothing.
+     */
+    default void blurBehind() { }
 }

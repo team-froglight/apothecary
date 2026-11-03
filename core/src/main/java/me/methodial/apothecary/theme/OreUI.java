@@ -512,8 +512,8 @@ public final class OreUI {
                     .active(FIELD)
                     .focusVisible(s -> s.apply(FIELD).outline(1, SELECTION_FRAME, 0))
                     .disabled(FIELD_DISABLED);
-            // A 9-across chevron in a one-unit line.
-            r.partCls("select-arrow", a -> a.style(s -> s.fontSize(18).stroke(1.4f)));
+            // The kit's pixel chevron at its icon size, one unit a cell.
+            r.partCls("select-arrow", a -> a.style(s -> s.fontSize(me.methodial.apothecary.widget.PixelIcon.KIT_FRAME)));
             r.open(s -> s.apply(FIELD).outline(1, SELECTION_FRAME, 0));
         });
         sheet.on("menu", r -> r.style(s -> s.radius(0).apply(PANEL).pad(2)));

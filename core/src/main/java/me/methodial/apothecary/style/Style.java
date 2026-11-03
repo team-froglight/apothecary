@@ -274,6 +274,11 @@ public class Style {
     }
     public Style smoothScroll(float seconds) { return set(Props.SCROLL_SMOOTHNESS, seconds); }
     public Style scrollInertia(float seconds) { return set(Props.SCROLL_INERTIA, seconds); }
+    /**
+     * Blurs what is already drawn before painting this box, as CSS backdrop-filter: blur() does, for full-screen layers
+     * such as a modal's scrim: the backend blurs the whole frame so far (see {@link me.methodial.apothecary.render.Canvas#blurBehind}).
+     */
+    public Style backdropBlur() { return set(Props.BACKDROP_BLUR, true); }
 
     // ================================================================== background, border, shadow
 

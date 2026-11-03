@@ -671,6 +671,21 @@ public final class McCanvas implements Canvas {
     }
 
     /**
+     * Blurs the frame drawn so far with Minecraft's own menu blur (its strength is the player's Menu Background
+     * Blurriness; at 0 nothing happens), so the layers that follow sit on a frosted backdrop. Not inside an offscreen
+     * group, whose content is not the frame.
+     */
+    @Override
+    public void blurBehind() {
+        if (!groups.isEmpty()) return;
+        flushGui();
+        Minecraft minecraft = Minecraft.getInstance();
+        minecraft.gameRenderer.processBlurEffect(minecraft.getTimer().getGameTimeDeltaPartialTick(false));
+        minecraft.getMainRenderTarget().bindWrite(false);
+        applyScissor();
+    }
+
+    /**
      * Restores 2D state after vanilla code drew with depth (items, entities): clears depth so later UI
      * draws over it, and re-applies the scissor in case vanilla changed it.
      */
