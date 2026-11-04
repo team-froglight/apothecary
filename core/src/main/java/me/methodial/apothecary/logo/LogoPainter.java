@@ -175,6 +175,20 @@ public final class LogoPainter {
         b.flush(c, dev.invert());
     }
 
+    /**
+     * Where a block's bevelled edge ends toward (bx + dx, by + dy), along the edge. When a block sits diagonally beyond
+     * that end on the edge's outer side ({@code out}: -1 up or left, 1 down or right), its swollen face covers the end
+     * (an inner corner, or two blocks meeting corner to corner as in V and W): the edge stops short of the
+     * {@code seam} by the swell, where that face begins, rather than being drawn over it. Otherwise it runs to the
+     * seam when the next block carries it on (meeting it with no gap or overlap), or past the block's own swell
+     * ({@code swollen}) when it is the end of the stroke.
+     */
+    private static int edge(char c, int bx, int by, int dx, int dy, int out, int seam, int swollen, int grow) {
+        boolean diagonal = dy == 0 ? LogoFont.solid(c, bx + dx, by + out) : LogoFont.solid(c, bx + out, by + dy);
+        if (diagonal) return seam - (dx + dy) * grow;
+        return LogoFont.solid(c, bx + dx, by + dy) ? seam : swollen;
+    }
+
     private static void letter(Batch b, char c, LogoStyle s, int lx, int ly, int up, int grow, int op, int dp, int bevel,
                                int pass, int index, float time) {
         int w = LogoFont.width(c);
@@ -199,15 +213,25 @@ public final class LogoPainter {
                     case 3 -> {
                         if (s.flat()) break;
                         // Bevelled edges: light catches the top and left, the bottom and right fall in shade.
-                        // Each edge stops where a neighbour's swollen face begins, so inner corners stay clean.
                         boolean l = LogoFont.solid(c, bx - 1, by), r = LogoFont.solid(c, bx + 1, by);
                         boolean t = LogoFont.solid(c, bx, by - 1), d = LogoFont.solid(c, bx, by + 1);
-                        int ex0 = l ? cx + grow : fx0, ex1 = r ? cx + up - grow : fx1;
-                        int ey0 = t ? cy + grow : fy0, ey1 = d ? cy + up - grow : fy1;
-                        if (!t) b.add(ex0, fy0, ex1, fy0 + bevel, argb(230, LogoStyle.mix(s.faceTop(), 0xFFFFFF, 0.6f)));
-                        if (!l) b.add(fx0, ey0, fx0 + bevel, ey1, argb(70, 0xFFFFFF));
-                        if (!r) b.add(fx1 - bevel, ey0, fx1, ey1, argb(45, 0));
-                        if (!d) b.add(ex0, fy1 - bevel, ex1, fy1, argb(60, 0));
+                        if (!t) {
+                            b.add(edge(c, bx, by, -1, 0, -1, cx, fx0, grow), fy0,
+                                edge(c, bx, by, 1, 0, -1, cx + up, fx1, grow), fy0 + bevel,
+                                argb(230, LogoStyle.mix(s.faceTop(), 0xFFFFFF, 0.6f)));
+                        }
+                        if (!l) {
+                            b.add(fx0, edge(c, bx, by, 0, -1, -1, cy, fy0, grow), fx0 + bevel,
+                                edge(c, bx, by, 0, 1, -1, cy + up, fy1, grow), argb(70, 0xFFFFFF));
+                        }
+                        if (!r) {
+                            b.add(fx1 - bevel, edge(c, bx, by, 0, -1, 1, cy, fy0, grow), fx1,
+                                edge(c, bx, by, 0, 1, 1, cy + up, fy1, grow), argb(45, 0));
+                        }
+                        if (!d) {
+                            b.add(edge(c, bx, by, -1, 0, 1, cx, fx0, grow), fy1 - bevel,
+                                edge(c, bx, by, 1, 0, 1, cx + up, fx1, grow), fy1, argb(60, 0));
+                        }
                     }
                     case 4 -> {
                         // Sparkles: a few blocks catch a small twinkling glint.
