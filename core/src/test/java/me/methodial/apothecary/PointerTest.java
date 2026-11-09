@@ -1,5 +1,6 @@
 package me.methodial.apothecary;
 
+import me.methodial.apothecary.event.EventType;
 import me.methodial.apothecary.event.KeyEvent;
 import me.methodial.apothecary.event.MouseEvent;
 import me.methodial.apothecary.geom.Rect;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Presses and clicks through a painted tree: what the modifiers do, where popups open. */
 class PointerTest {
@@ -48,5 +50,28 @@ class PointerTest {
         assertEquals("", field.selectedText(), "a plain click after a shift chord only places the caret");
         click(r, b.x() + 60, y, KeyEvent.MOD_SHIFT);
         assertFalse(field.selectedText().isEmpty(), "a shift-click selects from the caret to the click");
+    }
+
+    @Test
+    void aPopupAtTheCursorStaysWhereItOpened() {
+        Node area = new Node().style(s -> s.size(300, 200));
+        Node menu = new Node().style(s -> s.size(40, 30));
+        UIRoot r = root(new Node().add(area));
+        area.on(EventType.CONTEXT_MENU, e -> r.showPopup(menu, area, UIRoot.Placement.CURSOR, null));
+        r.mouseDown(50, 60, MouseEvent.RIGHT);
+        r.mouseUp(50, 60, MouseEvent.RIGHT);
+        frame(r);
+        assertTrue(r.isOpen(menu));
+        assertEquals(50, menu.globalBounds().x(), 0.01f);
+        assertEquals(60, menu.globalBounds().y(), 0.01f);
+
+        // Presses that keep it open (on the menu, on its anchor) don't drag it along.
+        click(r, 70, 75, 0);
+        frame(r);
+        click(r, 200, 150, 0);
+        frame(r);
+        assertTrue(r.isOpen(menu));
+        assertEquals(50, menu.globalBounds().x(), 0.01f);
+        assertEquals(60, menu.globalBounds().y(), 0.01f);
     }
 }

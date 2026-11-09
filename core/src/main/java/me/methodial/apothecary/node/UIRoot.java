@@ -43,13 +43,17 @@ public class UIRoot {
         final Placement placement;
         final Runnable onClose;
         final boolean modal;
+        /** Where the press that opened it was, for {@link Placement#CURSOR}: later presses don't move it. */
+        final float atX, atY;
 
-        Overlay(Node node, Node anchor, Placement placement, Runnable onClose, boolean modal) {
+        Overlay(Node node, Node anchor, Placement placement, Runnable onClose, boolean modal, float atX, float atY) {
             this.node = node;
             this.anchor = anchor;
             this.placement = placement;
             this.onClose = onClose;
             this.modal = modal;
+            this.atX = atX;
+            this.atY = atY;
         }
     }
 
@@ -234,7 +238,7 @@ public class UIRoot {
     public void showPopup(Node popup, Node anchor, Placement placement, Runnable onClose) {
         popup.baseStyle(s -> s.absolute().pointerEvents(PointerEvents.AUTO));
         popupLayer.add(popup);
-        overlays.add(new Overlay(popup, anchor, placement, onClose, false));
+        overlays.add(new Overlay(popup, anchor, placement, onClose, false, pressX, pressY));
         positionOverlays();
     }
 
@@ -266,7 +270,7 @@ public class UIRoot {
             if (e.target() == backdrop && backdrop.hasCls("dismissable")) close(backdrop);
         });
         modalLayer.add(backdrop);
-        overlays.add(new Overlay(backdrop, null, null, onClose, true));
+        overlays.add(new Overlay(backdrop, null, null, onClose, true, 0, 0));
         Node f = firstFocusable(dialog);
         if (f != null) setFocus(f);
         return backdrop;
@@ -314,7 +318,7 @@ public class UIRoot {
                 case RIGHT -> { x = a.right() + 2; y = a.y(); }
                 case LEFT -> { x = a.x() - pw - 2; y = a.y(); }
                 case BELOW_END -> { x = a.right() - pw; y = a.bottom() + 2; }
-                case CURSOR -> { x = pressX; y = pressY; }
+                case CURSOR -> { x = o.atX; y = o.atY; }
                 default -> { x = a.x(); y = a.bottom() + 2; }
             }
             if (o.placement == Placement.BELOW && y + ph > height - 2 && a.y() - ph - 2 >= 2) y = a.y() - ph - 2;
