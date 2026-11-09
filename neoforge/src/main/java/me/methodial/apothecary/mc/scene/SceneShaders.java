@@ -21,6 +21,9 @@ public final class SceneShaders {
     static boolean ready() { return composite != null && bloomDown != null && bloomUp != null && grade != null && present != null; }
 
     public static void onRegisterShaders(RegisterShadersEvent event) {
+        // Forget the last load's programs first: the game closes them on reload, and a pass that fails to load
+        // now must leave ready() false rather than the closed program in use.
+        composite = bloomDown = bloomUp = grade = present = null;
         try {
             event.registerShader(load(event, "scene_composite"), s -> composite = s);
             event.registerShader(load(event, "scene_bloom_down"), s -> bloomDown = s);

@@ -46,6 +46,10 @@ public final class ApothecaryShaders {
     public static boolean ready() { return roundedRect != null && line != null && arc != null; }
 
     public static void onRegisterShaders(RegisterShadersEvent event) {
+        // Forget the last load's programs first: the game closes them on reload, and one that fails to load now
+        // must leave ready() false (or its effect missing) rather than the closed program in use.
+        roundedRect = line = arc = null;
+        EFFECTS.clear();
         try {
             event.registerShader(new ShaderInstance(event.getResourceProvider(), id("rounded_rect"), DefaultVertexFormat.POSITION_TEX), s -> roundedRect = s);
             event.registerShader(new ShaderInstance(event.getResourceProvider(), id("line"), DefaultVertexFormat.POSITION_TEX), s -> line = s);
