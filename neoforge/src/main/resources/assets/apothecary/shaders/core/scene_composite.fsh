@@ -420,24 +420,49 @@ float waveHeight(vec2 p) {
          + texture(Sampler3, p * 0.11 + vec2(-t * 0.0060, t * 0.0075)).g * 0.35;
 }
 
-/** A level surface's normal, tilted by the waves; falling water keeps its own. */
-vec3 waterNormal(vec3 pos, vec3 n) {
-    if (n.y < 0.7) return n;
+/** Streaks pouring down a fall: noise stretched tall, sliding down with time. */
+float fallHeight(float across, float y) {
+    float t = Time;
+    return texture(Sampler3, vec2(across * 0.09, y * 0.012 + t * 0.055)).r * 0.6
+         + texture(Sampler3, vec2(across * 0.23 + 0.37, y * 0.03 + t * 0.11)).g * 0.4;
+}
+
+/** A level surface's normal, tilted by the waves; a falling one's, by the streaks pouring down it. */
+vec3 waterNormal(vec3 pos, vec3 n, out float streak) {
+    streak = 0.0;
+    if (n.y < 0.7) {
+        vec3 side = normalize(cross(vec3(0.0, 1.0, 0.0), n));
+        float across = dot(pos, side);
+        const float e = 0.12;
+        float h = fallHeight(across, pos.y);
+        streak = h;
+        float du = (fallHeight(across + e, pos.y) - h) / e, dv = (fallHeight(across, pos.y + e) - h) / e;
+        return normalize(n - side * du * 0.5 - vec3(0.0, 1.0, 0.0) * dv * 0.25);
+    }
     const float e = 0.15;
     float h = waveHeight(pos.xz);
     vec2 slope = vec2(waveHeight(pos.xz + vec2(e, 0.0)) - h, waveHeight(pos.xz + vec2(0.0, e)) - h) / e;
     return normalize(vec3(-slope.x * 0.45, 1.0, -slope.y * 0.45));
 }
 
-/** Clear, tinted water that mirrors the sky at a glance and catches the sun on its waves. */
+/**
+ * Unbound's water: a deep blue body you see a little way into, mirroring the sky at a glance and catching the sun on
+ * its waves; falling water pours in streaks, white where they run fastest.
+ */
 vec3 shadeWater(vec3 col, vec3 pos, vec3 n, vec3 V, float shadow, float dither) {
-    vec3 nw = waterNormal(pos, n);
+    float streak;
+    vec3 nw = waterNormal(pos, n, streak);
+    bool falling = n.y < 0.7;
     vec3 R = reflect(V, nw);
     float NdotV = max0(dot(nw, -V));
-    float fresnel = 0.12 + 0.88 * pow(1.0 - NdotV, 5.0);
+    float fresnel = (falling ? 0.22 : 0.12) + 0.78 * pow(1.0 - NdotV, 5.0);
     vec3 sky = GetSky(max(R.y, 0.02), dot(R, SunDir), dither, false, false);
-    col *= vec3(0.62, 0.84, 1.0);   // its depth swallows the reds
+    vec3 light = lightColor * shadow * shadowTime + ambientColor;
+    // its depth swallows the reds, and a falling sheet hides more of what's behind it
+    vec3 body = vec3(0.045, 0.16, 0.30) * light;
+    col = mix(col * vec3(0.62, 0.84, 1.0), body, falling ? 0.55 : 0.25);
     col = mix(col, sky, fresnel);
+    if (falling) col += light * smoothstep(0.62, 0.85, streak) * 0.35;   // white water
     vec3 H = normalize(lightDir - V);
     float spec = pow(max0(dot(nw, H)), 220.0) * 18.0 + pow(max0(dot(nw, H)), 24.0) * 0.25;
     return col + lightColor * spec * shadow * shadowTime * fresnel * 4.0;
