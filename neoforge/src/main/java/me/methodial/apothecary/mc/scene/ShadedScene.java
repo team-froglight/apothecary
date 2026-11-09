@@ -11,6 +11,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.vertex.VertexSorting;
+import me.methodial.apothecary.mc.render.GpuProfiler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -306,6 +307,9 @@ public final class ShadedScene implements AutoCloseable {
         if (!SceneShaders.ready() || w < 1 || h < 1) return;
         Minecraft mc = Minecraft.getInstance();
         RenderSystem.assertOnRenderThread();
+        // for GpuProfiler: each pass's time, under the screen drawing the scene
+        String scope = "scene " + (mc.screen == null ? "?" : mc.screen.getClass().getSimpleName());
+        GpuProfiler.mark(scope, "start");
         gx = x;
         gy = y;
         gw = w;
@@ -334,6 +338,7 @@ public final class ShadedScene implements AutoCloseable {
         RenderSystem.applyModelViewMatrix();
         content.draw(pose, buffers, Pass.SHADOW);
         buffers.endBatch();
+        GpuProfiler.mark(scope, "shadow");
 
         // the camera's view, in the surfaces' own colours
         scene.setClearColor(0f, 0f, 0f, 0f);
@@ -343,6 +348,7 @@ public final class ShadedScene implements AutoCloseable {
         Lighting.setupLevel();
         content.draw(pose, buffers, Pass.SCENE);
         buffers.endBatch();
+        GpuProfiler.mark(scope, "scene");
 
         // the materials' mask, over the surfaces they cover
         material.bindWithDepth(scene.getDepthTextureId());
@@ -358,12 +364,14 @@ public final class ShadedScene implements AutoCloseable {
             RenderSystem.depthMask(true);
         }
         material.bindWithDepth(0);
+        GpuProfiler.mark(scope, "materials");
         Lighting.setupFor3DItems();
 
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
         RenderSystem.disableBlend();
         composite();
+        GpuProfiler.mark(scope, "composite");
 
         // light that needs no lighting, onto the lit picture, behind whatever stands in front of it
         hdr.bindWithDepth(scene.getDepthTextureId());
@@ -371,16 +379,21 @@ public final class ShadedScene implements AutoCloseable {
         RenderSystem.enableDepthTest();
         RenderSystem.depthMask(false);
         RenderSystem.enableBlend();
-        RenderSystem.blendFunc(GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ONE);
+        // light adds up; the alpha (where the picture wants blurring) is left as the composite wrote it
+        RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ONE,
+                GlStateManager.SourceFactor.ZERO, GlStateManager.DestFactor.ONE);
         content.draw(pose, buffers, Pass.GLOW);
         buffers.endBatch();
+        GpuProfiler.mark(scope, "glow");
         RenderSystem.defaultBlendFunc();
         RenderSystem.disableBlend();
         RenderSystem.disableDepthTest();
         hdr.bindWithDepth(0);
 
         bloomPyramid();
+        GpuProfiler.mark(scope, "bloom");
         grade();
+        GpuProfiler.mark(scope, "grade");
 
         // back onto the screen, into the rectangle
         mc.getMainRenderTarget().bindWrite(true);
@@ -388,6 +401,7 @@ public final class ShadedScene implements AutoCloseable {
         modelView.popMatrix();
         RenderSystem.applyModelViewMatrix();
         present(g);
+        GpuProfiler.mark(scope, "present");
         RenderSystem.enableDepthTest();
         RenderSystem.depthMask(true);
     }

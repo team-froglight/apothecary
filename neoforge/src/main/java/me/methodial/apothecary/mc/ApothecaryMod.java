@@ -2,6 +2,7 @@ package me.methodial.apothecary.mc;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import me.methodial.apothecary.mc.render.ApothecaryShaders;
+import me.methodial.apothecary.mc.render.GpuProfiler;
 import me.methodial.apothecary.mc.scene.SceneShaders;
 import me.methodial.apothecary.mc.showcase.ShowcaseScreen;
 import net.minecraft.client.KeyMapping;
@@ -11,6 +12,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
@@ -50,6 +52,12 @@ public final class ApothecaryMod {
                     openRequested = true;   // the chat screen closes after the command; open next tick
                     return 1;
                 })));
+        // the whole frame, for GpuProfiler (nothing unless it's on)
+        NeoForge.EVENT_BUS.addListener(RenderFrameEvent.Pre.class, e -> GpuProfiler.mark("frame", "start"));
+        NeoForge.EVENT_BUS.addListener(RenderFrameEvent.Post.class, e -> {
+            GpuProfiler.mark("frame", "frame");
+            GpuProfiler.endFrame();
+        });
         NeoForge.EVENT_BUS.addListener(ClientTickEvent.Post.class, e -> {
             Minecraft mc = Minecraft.getInstance();
             while (OPEN_SHOWCASE.consumeClick()) {

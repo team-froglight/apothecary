@@ -8,11 +8,11 @@ uniform vec2 TexelSize;
 in vec2 uv;
 out vec4 fragColor;
 
-vec3 tap(vec2 o) { return texture(Sampler0, uv + o * TexelSize).rgb; }
+vec4 tap(vec2 o) { return texture(Sampler0, uv + o * TexelSize); }
 
 void main() {
-    vec3 color = tap(vec2(0.0)) * 4.0
+    vec4 color = tap(vec2(0.0)) * 4.0
             + (tap(vec2(-1.0, 0.0)) + tap(vec2(1.0, 0.0)) + tap(vec2(0.0, -1.0)) + tap(vec2(0.0, 1.0))) * 2.0
             + tap(vec2(-1.0, -1.0)) + tap(vec2(1.0, -1.0)) + tap(vec2(-1.0, 1.0)) + tap(vec2(1.0, 1.0));
-    fragColor = vec4(color / 16.0, 1.0);
+    fragColor = color / 16.0;
 }

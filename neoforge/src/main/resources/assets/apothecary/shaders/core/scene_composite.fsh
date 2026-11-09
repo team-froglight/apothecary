@@ -505,6 +505,7 @@ void main() {
     // how much of the pixel the surfaces cover: less where something translucent (a fall fading out) lies over the sky
     float cover = depth < 1.0 ? texture(Sampler0, uv).a : 0.0;
     vec3 col = vec3(0.0), behind = vec3(0.0);
+    float soften = 0.0;   // how much the picture should blur here: a fall as it thins out
     float dist = Fog.y * 4.0;
     if (cover < 0.999) {
         float skyUp = skyV.y, skySun = dot(skyV, SunDir);
@@ -541,6 +542,7 @@ void main() {
         if (material.r > 0.004) {
             col = shadeWater(pos, n, V, shadow, dither, sceneLighting, behind, depth, clamp01(material.a));
             cover = 1.0;   // the water saw to what lies behind it
+            if (n.y < 0.7) soften = 1.0 - clamp01(material.a);
         }
         else if (material.g > 0.004) col = shadeLava(albedo, pos);
         else if (material.b > 0.004) col = shadeLight(col, albedo);
@@ -551,5 +553,5 @@ void main() {
     }
 
     col += shafts(V, dist, VdotL);
-    fragColor = vec4(col, 1.0);
+    fragColor = vec4(col, soften);
 }

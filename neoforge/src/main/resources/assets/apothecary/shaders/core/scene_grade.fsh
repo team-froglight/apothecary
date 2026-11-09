@@ -5,7 +5,7 @@
 // saturation and vibrance, and a whisper of vignette. FXAA comes after, in scene_present.
 
 uniform sampler2D Sampler0;   // the lit scene, linear HDR
-uniform sampler2D Sampler1;   // the bloom pyramid, summed
+uniform sampler2D Sampler1;   // the bloom pyramid, summed; its alpha, how much the picture wants blurring there, spread
 uniform float Bloom;
 uniform vec4 Frost0, Frost1, Frost2, Frost3, Frost4, Frost5, Frost6, Frost7;   // frosted rectangles (u0, v0, u1, v1): the bloom's blur there, for panels over it
 
@@ -72,6 +72,9 @@ void main() {
     vec3 blur = texture(Sampler1, uv).rgb / BLOOM_LEVELS;
     bool frosted = inside(Frost0) || inside(Frost1) || inside(Frost2) || inside(Frost3)
             || inside(Frost4) || inside(Frost5) || inside(Frost6) || inside(Frost7);
+    // a fall thinning out dissolves into a blur, more the further it has faded (alpha, spread by the pyramid)
+    float soften = smoothstep(0.0, 0.4, texture(Sampler1, uv).a / BLOOM_LEVELS);
+    color = mix(color, blur, soften);
     color = frosted ? blur : mix(color, blur, Bloom);
 
     color = saturation(tonemap(color));
