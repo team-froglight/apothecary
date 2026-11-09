@@ -162,7 +162,12 @@ public class UIScreen extends Screen {
     public void mouseMoved(double x, double y) { ui.mouseMove((float) x / base, (float) y / base); }
 
     @Override
-    public boolean mouseClicked(double x, double y, int button) { return ui.mouseDown((float) x / base, (float) y / base, button); }
+    public boolean mouseClicked(double x, double y, int button) {
+        // Vanilla hands no modifiers to a click; read them off the keyboard (GLFW's bits are the KeyEvent ones).
+        int mods = (hasShiftDown() ? GLFW.GLFW_MOD_SHIFT : 0) | (hasControlDown() ? GLFW.GLFW_MOD_CONTROL : 0)
+                | (hasAltDown() ? GLFW.GLFW_MOD_ALT : 0);
+        return ui.mouseDown((float) x / base, (float) y / base, button, mods);
+    }
 
     @Override
     public boolean mouseReleased(double x, double y, int button) { return ui.mouseUp((float) x / base, (float) y / base, button); }

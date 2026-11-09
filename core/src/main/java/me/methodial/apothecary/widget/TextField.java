@@ -49,16 +49,13 @@ public class TextField extends ValueWidget<String> {
             else if (e.clickCount() >= 3) { anchor = 0; caret = value.length(); }
             else {
                 caret = idx;
-                if (root() == null || !isShiftHeld()) anchor = idx;
+                if (!e.shift()) anchor = idx;
             }
             resetBlink();
         });
         on(EventType.DRAG, e -> { caret = indexAt(e.localX()); resetBlink(); });
         on(EventType.FOCUS, e -> resetBlink());
     }
-
-    private boolean shiftHeld;
-    private boolean isShiftHeld() { return shiftHeld; }
 
     public TextField placeholder(String p) { this.placeholder = p == null ? "" : p; return this; }
     public TextField maxLength(int n) { this.maxLength = n; return this; }
@@ -104,7 +101,6 @@ public class TextField extends ValueWidget<String> {
     private void insert(String s) { replaceSelection(s); }
 
     private boolean handleKey(KeyEvent e) {
-        shiftHeld = e.shift();
         boolean word = e.primary();
         int k = e.key();
         if (word && k == KeyEvent.KEY_A) { selectAll(); return true; }

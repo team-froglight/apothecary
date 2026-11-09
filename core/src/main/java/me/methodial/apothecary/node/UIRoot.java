@@ -72,7 +72,7 @@ public class UIRoot {
     private float mouseX = -1, mouseY = -1;
     private final List<Node> hoverChain = new ArrayList<>();
     private Node pressed, dragTarget;
-    private int pressedButton = -1;
+    private int pressedButton = -1, pressMods;
     private float pressX, pressY;
     private boolean dragging;
     private Node focused;
@@ -700,7 +700,10 @@ public class UIRoot {
 
     Node scrollbarDragNode() { return scrollbarDrag; }
 
-    public boolean mouseDown(float x, float y, int button) {
+    public boolean mouseDown(float x, float y, int button) { return mouseDown(x, y, button, 0); }
+
+    /** A press with the modifier keys held ({@link KeyEvent#MOD_SHIFT} etc), which shift-click selection reads. */
+    public boolean mouseDown(float x, float y, int button, int mods) {
         settleFocus();
         mouseX = x;
         mouseY = y;
@@ -724,6 +727,7 @@ public class UIRoot {
         if (target.isDisabled()) return true;
         pressed = target;
         pressedButton = button;
+        pressMods = mods;
         pressX = x;
         pressY = y;
         dragging = false;
@@ -739,7 +743,7 @@ public class UIRoot {
         lastClickTime = time;
         lastClickX = x;
         lastClickY = y;
-        MouseEvent e = target.emit(EventType.MOUSE_DOWN, new MouseEvent(x, y, button, clickCount, 0, 0));
+        MouseEvent e = target.emit(EventType.MOUSE_DOWN, new MouseEvent(x, y, button, clickCount, 0, 0, pressMods));
         return true;
     }
 
@@ -766,8 +770,8 @@ public class UIRoot {
         dragTarget = null;
         if (!suppressClick && target != null && target.isDescendantOf(p) || (!suppressClick && target != null && p.isDescendantOf(target))) {
             if (!p.isDisabled()) {
-                if (button == MouseEvent.LEFT) p.emit(EventType.CLICK, new MouseEvent(x, y, button, clickCount, 0, 0));
-                else if (button == MouseEvent.RIGHT) p.emit(EventType.CONTEXT_MENU, new MouseEvent(x, y, button, clickCount, 0, 0));
+                if (button == MouseEvent.LEFT) p.emit(EventType.CLICK, new MouseEvent(x, y, button, clickCount, 0, 0, pressMods));
+                else if (button == MouseEvent.RIGHT) p.emit(EventType.CONTEXT_MENU, new MouseEvent(x, y, button, clickCount, 0, 0, pressMods));
             }
         }
         updateHover();

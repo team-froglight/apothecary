@@ -33,7 +33,6 @@ public class TextArea extends ValueWidget<String> {
     private Predicate<String> filter = s -> true;
     private Consumer<String> onSubmit;
     private float blinkStart;
-    private boolean shiftHeld;
     /** Wrapped lines from the last paint: start and end offsets into the value. */
     private final List<int[]> lines = new ArrayList<>();
     private float lastWidth = -1;
@@ -55,7 +54,7 @@ public class TextArea extends ValueWidget<String> {
         on(EventType.MOUSE_DOWN, e -> {
             int idx = indexAt(e.localX(), e.localY());
             caret = idx;
-            if (!shiftHeld) anchor = idx;
+            if (!e.shift()) anchor = idx;
             if (e.clickCount() >= 2) { anchor = 0; caret = value.length(); }
             resetBlink();
         });
@@ -108,7 +107,6 @@ public class TextArea extends ValueWidget<String> {
     }
 
     private boolean handleKey(KeyEvent e) {
-        shiftHeld = e.shift();
         boolean word = e.primary();
         int k = e.key();
         if (word && k == KeyEvent.KEY_A) { anchor = 0; caret = value.length(); return true; }
