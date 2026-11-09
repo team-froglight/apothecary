@@ -41,7 +41,14 @@ public final class GpuProfiler {
 
     public static void enable(boolean on) {
         enabled = on;
-        if (!on) reset();
+        if (on) return;
+        // Marks still waiting on the GPU would be read into the next session's averages; drop them, and keep their
+        // queries for reuse (a query is issued afresh each time it is marked).
+        for (List<Mark> frame : PENDING) for (Mark m : frame) POOL.push(m.query());
+        for (Mark m : current) POOL.push(m.query());
+        PENDING.clear();
+        current = new ArrayList<>();
+        reset();
     }
 
     public static boolean enabled() { return enabled; }
