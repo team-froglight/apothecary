@@ -455,14 +455,14 @@ vec3 shadeWater(vec3 col, vec3 pos, vec3 n, vec3 V, float shadow, float dither) 
     bool falling = n.y < 0.7;
     vec3 R = reflect(V, nw);
     float NdotV = max0(dot(nw, -V));
-    float fresnel = (falling ? 0.22 : 0.12) + 0.78 * pow(1.0 - NdotV, 5.0);
+    float fresnel = 0.06 + 0.78 * pow(1.0 - NdotV, 5.0);
     vec3 sky = GetSky(max(R.y, 0.02), dot(R, SunDir), dither, false, false);
     vec3 light = lightColor * shadow * shadowTime + ambientColor;
     // its depth swallows the reds, and a falling sheet hides more of what's behind it
-    vec3 body = vec3(0.045, 0.16, 0.30) * light;
-    col = mix(col * vec3(0.62, 0.84, 1.0), body, falling ? 0.55 : 0.25);
+    vec3 body = vec3(0.03, 0.13, 0.28) * light;
+    col = mix(col * vec3(0.55, 0.8, 1.0), body, falling ? 0.45 : 0.35);
     col = mix(col, sky, fresnel);
-    if (falling) col += light * smoothstep(0.62, 0.85, streak) * 0.35;   // white water
+    if (falling) col += light * vec3(0.8, 0.9, 1.0) * smoothstep(0.7, 0.9, streak) * 0.12;   // white water
     vec3 H = normalize(lightDir - V);
     float spec = pow(max0(dot(nw, H)), 220.0) * 18.0 + pow(max0(dot(nw, H)), 24.0) * 0.25;
     return col + lightColor * spec * shadow * shadowTime * fresnel * 4.0;
