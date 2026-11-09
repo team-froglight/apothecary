@@ -36,10 +36,26 @@ import org.joml.Vector4f;
  */
 public final class ShadedScene implements AutoCloseable {
 
-    /** What the scene is: drawn in world coordinates on {@code pose}, into {@code buffers}. */
+    /** The passes the scene is drawn in. */
+    public enum Pass {
+        /** From the sun (or moon), into the shadow map: only shape matters. World coordinates. */
+        SHADOW,
+        /** The camera's view: surfaces in their own colours, unlit (the scene lights them). */
+        SCENE,
+        /**
+         * Light that needs no lighting: lanterns, glows, beams, sparks. Added onto the lit picture, depth-tested
+         * against the scene (not writing depth), so what's in front still hides it.
+         */
+        GLOW
+    }
+
+    /**
+     * What the scene is. In {@link Pass#SHADOW} it draws in world coordinates (the sun's matrices are set). In the
+     * others it draws as the camera has it: world coordinates for {@link #camera}, or, for {@link #screenCamera},
+     * exactly as it would on the screen (GUI matrices, its own world-to-screen transform).
+     */
     public interface Content {
-        /** {@code shadow} is true for the pass from the sun, where only shape matters. */
-        void draw(PoseStack pose, MultiBufferSource.BufferSource buffers, boolean shadow);
+        void draw(PoseStack pose, MultiBufferSource.BufferSource buffers, Pass pass);
     }
 
     /** Complementary's noise, for the volumetric clouds. */
@@ -67,16 +83,39 @@ public final class ShadedScene implements AutoCloseable {
     private float resolution = 1f;
     private float bloom = 0.1f;
     private float shiftX, shiftY;
-    /** A frosted rectangle (GUI units), blurred behind a panel drawn over the scene; empty when w is 0. */
-    private float frostX, frostY, frostW, frostH;
+    /** Frosted rectangles (GUI units, x y w h each), blurred behind panels drawn over the scene. */
+    private static final int MAX_FROST = 4;
+    private final float[] frosts = new float[MAX_FROST * 4];
+    private int frostCount;
+    /** Screen-camera mode: the caller's world-to-GUI transform, its eye, and the sky's look direction. */
+    private boolean screen;
+    private final Matrix4f worldToGui = new Matrix4f();
+    private final Vector3f screenEye = new Vector3f();
+    private float skyYaw, skyPitch;
 
     /** Looks at {@code target} from {@code distance} away, turned {@code yaw} and tilted down {@code pitch} (degrees). */
     public ShadedScene camera(Vector3f target, float yaw, float pitch, float distance, float fov) {
+        this.screen = false;
         this.target.set(target);
         this.yaw = yaw;
         this.pitch = pitch;
         this.distance = distance;
         this.fov = fov;
+        return this;
+    }
+
+    /**
+     * A camera the caller already has, for a view drawn in screen space (a map with its own pan, zoom and picking):
+     * {@code worldToGui} takes world points to GUI units on the screen, {@code eye} is where its light rays come from
+     * (far along the view, for an orthographic one), and the sky is seen turned {@code skyYaw}, tilted down
+     * {@code skyPitch} (degrees) through a perspective lens, so it keeps its gradient.
+     */
+    public ShadedScene screenCamera(Matrix4f worldToGui, Vector3f eye, float skyYaw, float skyPitch) {
+        this.screen = true;
+        this.worldToGui.set(worldToGui);
+        this.screenEye.set(eye);
+        this.skyYaw = skyYaw;
+        this.skyPitch = skyPitch;
         return this;
     }
 
@@ -95,10 +134,24 @@ public final class ShadedScene implements AutoCloseable {
      * drawn over it. It costs nothing: the bloom pyramid is that blur already. {@code w = 0} clears it.
      */
     public ShadedScene frost(float x, float y, float w, float h) {
-        frostX = x;
-        frostY = y;
-        frostW = w;
-        frostH = h;
+        clearFrost();
+        return w > 0f && h > 0f ? addFrost(x, y, w, h) : this;
+    }
+
+    /** No frosted rectangles. */
+    public ShadedScene clearFrost() {
+        frostCount = 0;
+        return this;
+    }
+
+    /** One more frosted rectangle (up to four; more are ignored), for a screen with several panels. */
+    public ShadedScene addFrost(float x, float y, float w, float h) {
+        if (frostCount == MAX_FROST || w <= 0f || h <= 0f) return this;
+        frosts[frostCount * 4] = x;
+        frosts[frostCount * 4 + 1] = y;
+        frosts[frostCount * 4 + 2] = w;
+        frosts[frostCount * 4 + 3] = h;
+        frostCount++;
         return this;
     }
 
@@ -134,7 +187,7 @@ public final class ShadedScene implements AutoCloseable {
         return this;
     }
 
-    /** The cloud layer's height, in world y. */
+    /** The cloud layer's height, in world y; {@code Float.NaN} for none (the caller draws its own). */
     public ShadedScene clouds(float height) {
         cloudHeight = height;
         return this;
@@ -175,7 +228,10 @@ public final class ShadedScene implements AutoCloseable {
     private final FloatTarget[] blooms = new FloatTarget[BLOOM_LEVELS];
     private final Matrix4f view = new Matrix4f(), proj = new Matrix4f(), viewProj = new Matrix4f(), inverse = new Matrix4f();
     private final Matrix4f shadowView = new Matrix4f(), shadowProj = new Matrix4f(), shadowMat = new Matrix4f();
-    private final Matrix4f savedProj = new Matrix4f();
+    private final Matrix4f savedProj = new Matrix4f(), guiView = new Matrix4f();
+    private final Matrix4f skyProj = new Matrix4f(), skyInverse = new Matrix4f();
+    /** Half a block in pixels: at the camera (orthographic) or divided by distance (perspective). */
+    private float aoScale;
     private final Matrix4f turn = new Matrix4f();
     private final Vector3f eye = new Vector3f(), scratch = new Vector3f(), from = new Vector3f(), up = new Vector3f(), light = new Vector3f();
     private final Vector4f clip = new Vector4f();
@@ -200,11 +256,12 @@ public final class ShadedScene implements AutoCloseable {
         double scale = mc.getWindow().getGuiScale() * resolution;
         int pw = Math.max(1, (int) Math.round(w * scale)), ph = Math.max(1, (int) Math.round(h * scale));
         allocate(pw, ph);
-        matrices(w / h);
+        savedProj.set(RenderSystem.getProjectionMatrix());
+        guiView.set(RenderSystem.getModelViewMatrix());
+        matrices(w / h, (float) scale);
 
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
         buffers.endBatch();
-        savedProj.set(RenderSystem.getProjectionMatrix());
         VertexSorting savedSorting = RenderSystem.getVertexSorting();
         Matrix4fStack modelView = RenderSystem.getModelViewStack();
         modelView.pushMatrix();
@@ -218,18 +275,16 @@ public final class ShadedScene implements AutoCloseable {
         RenderSystem.setProjectionMatrix(shadowProj, VertexSorting.ORTHOGRAPHIC_Z);
         modelView.identity().mul(shadowView);
         RenderSystem.applyModelViewMatrix();
-        content.draw(pose, buffers, true);
+        content.draw(pose, buffers, Pass.SHADOW);
         buffers.endBatch();
 
-        // the camera's view, lit as the level is
+        // the camera's view, in the surfaces' own colours
         scene.setClearColor(0f, 0f, 0f, 0f);
         scene.clear(Minecraft.ON_OSX);
         scene.bindWrite(true);
-        RenderSystem.setProjectionMatrix(proj, VertexSorting.DISTANCE_TO_ORIGIN);
-        modelView.identity().mul(view);
-        RenderSystem.applyModelViewMatrix();
+        cameraMatrices(modelView);
         Lighting.setupLevel();
-        content.draw(pose, buffers, false);
+        content.draw(pose, buffers, Pass.SCENE);
         buffers.endBatch();
         Lighting.setupFor3DItems();
 
@@ -237,6 +292,21 @@ public final class ShadedScene implements AutoCloseable {
         RenderSystem.depthMask(false);
         RenderSystem.disableBlend();
         composite();
+
+        // light that needs no lighting, onto the lit picture, behind whatever stands in front of it
+        hdr.bindWithDepth(scene.getDepthTextureId());
+        cameraMatrices(modelView);
+        RenderSystem.enableDepthTest();
+        RenderSystem.depthMask(false);
+        RenderSystem.enableBlend();
+        RenderSystem.blendFunc(GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ONE);
+        content.draw(pose, buffers, Pass.GLOW);
+        buffers.endBatch();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.disableBlend();
+        RenderSystem.disableDepthTest();
+        hdr.bindWithDepth(0);
+
         bloomPyramid();
         grade();
 
@@ -265,15 +335,43 @@ public final class ShadedScene implements AutoCloseable {
         }
     }
 
-    private void matrices(float aspect) {
-        // camera: orbit the target
-        view.identity().rotateX((float) Math.toRadians(pitch)).rotateY((float) Math.toRadians(yaw));
-        view.invert(turn);
-        turn.transformDirection(scratch.set(0f, 0f, 1f));
-        eye.set(target).fma(distance, scratch);
-        view.translate(-eye.x, -eye.y, -eye.z);
-        proj.translation(shiftX, shiftY, 0f).perspective((float) Math.toRadians(fov), aspect, 0.05f, far);
-        proj.mul(view, viewProj);
+    /** The camera's projection and model-view for the scene and glow passes. */
+    private void cameraMatrices(Matrix4fStack modelView) {
+        if (screen) {
+            RenderSystem.setProjectionMatrix(proj, VertexSorting.ORTHOGRAPHIC_Z);
+            modelView.set(guiView);
+        } else {
+            RenderSystem.setProjectionMatrix(proj, VertexSorting.DISTANCE_TO_ORIGIN);
+            modelView.identity().mul(view);
+        }
+        RenderSystem.applyModelViewMatrix();
+    }
+
+    private void matrices(float aspect, float pixelsPerGui) {
+        if (screen) {
+            // the caller's own screen projection, narrowed to the rectangle so the rectangle fills the target
+            Vector3f a = savedProj.transformProject(gx, gy, 0f, new Vector3f());
+            Vector3f b = savedProj.transformProject(gx + gw, gy + gh, 0f, new Vector3f());
+            proj.identity().scale(2f / (b.x - a.x), 2f / (a.y - b.y), 1f)
+                    .translate(-(a.x + b.x) / 2f, -(a.y + b.y) / 2f, 0f).mul(savedProj);
+            proj.mul(guiView, viewProj).mul(worldToGui);
+            eye.set(screenEye);
+            view.identity().rotateX((float) Math.toRadians(skyPitch)).rotateY((float) Math.toRadians(skyYaw));
+            skyProj.setPerspective((float) Math.toRadians(70f), aspect, 0.05f, far).mul(view, skyInverse).invert();
+            // an orthographic view: a block is the same size everywhere, this many pixels
+            aoScale = worldToGui.getScale(scratch).x * pixelsPerGui * 0.5f;
+        } else {
+            // camera: orbit the target
+            view.identity().rotateX((float) Math.toRadians(pitch)).rotateY((float) Math.toRadians(yaw));
+            proj.translation(shiftX, shiftY, 0f).perspective((float) Math.toRadians(fov), aspect, 0.05f, far);
+            proj.mul(view, skyInverse).invert();
+            view.invert(turn);
+            turn.transformDirection(scratch.set(0f, 0f, 1f));
+            eye.set(target).fma(distance, scratch);
+            view.translate(-eye.x, -eye.y, -eye.z);
+            proj.mul(view, viewProj);
+            aoScale = 0.5f * proj.m11() * 0.5f * gh * pixelsPerGui;
+        }
         viewProj.invert(inverse);
 
         // the sun (the moon by night): an orthographic box around the shadow sphere, looking along the light
@@ -290,6 +388,10 @@ public final class ShadedScene implements AutoCloseable {
         ShaderInstance s = SceneShaders.composite;
         hdr.bind();
         s.safeGetUniform("InvViewProj").set(inverse);
+        s.safeGetUniform("SkyInvViewProj").set(skyInverse);
+        s.safeGetUniform("AoScale").set(aoScale);
+        s.safeGetUniform("Ortho").set(screen ? 1f : 0f);
+        s.safeGetUniform("ShadowCenter").set(shadowCenter.x, shadowCenter.y, shadowCenter.z);
         s.safeGetUniform("ShadowMat").set(shadowMat);
         s.safeGetUniform("CameraPos").set(eye.x, eye.y, eye.z);
         s.safeGetUniform("SunDir").set(sun.x, sun.y, sun.z);
@@ -297,10 +399,9 @@ public final class ShadedScene implements AutoCloseable {
         s.safeGetUniform("ScreenSize").set((float) hdr.width, (float) hdr.height);
         s.safeGetUniform("Time").set(time);
         s.safeGetUniform("SunSize").set(sunSize);
-        s.safeGetUniform("CloudHeight").set(cloudHeight);
+        s.safeGetUniform("CloudHeight").set(Float.isNaN(cloudHeight) ? -1e9f : cloudHeight);
         s.safeGetUniform("Fog").set(fogStart, fogEnd);
         s.safeGetUniform("ShadowInfo").set((float) shadowSize, shadowRadius * 4f);
-        s.safeGetUniform("ProjScale").set(proj.m11());
         s.safeGetUniform("MoonPhase").set((float) moonPhase);
         RenderSystem.setShaderTexture(0, scene.getColorTextureId());
         RenderSystem.setShaderTexture(1, scene.getDepthTextureId());
@@ -344,13 +445,14 @@ public final class ShadedScene implements AutoCloseable {
         ShaderInstance s = SceneShaders.grade;
         ldr.bind();
         s.safeGetUniform("Bloom").set(bloom);
-        if (frostW > 0f && frostH > 0f) {
-            // in the scene's texture coordinates, v up
-            float u0 = (frostX - gx) / gw, u1 = (frostX + frostW - gx) / gw;
-            float v0 = 1f - (frostY + frostH - gy) / gh, v1 = 1f - (frostY - gy) / gh;
-            s.safeGetUniform("Frost").set(u0, v0, u1, v1);
-        } else {
-            s.safeGetUniform("Frost").set(0f, 0f, 0f, 0f);
+        for (int i = 0; i < MAX_FROST; i++) {
+            if (i < frostCount) {
+                // in the scene's texture coordinates, v up
+                float fx = frosts[i * 4], fy = frosts[i * 4 + 1], fw = frosts[i * 4 + 2], fh = frosts[i * 4 + 3];
+                s.safeGetUniform("Frost" + i).set((fx - gx) / gw, 1f - (fy + fh - gy) / gh, (fx + fw - gx) / gw, 1f - (fy - gy) / gh);
+            } else {
+                s.safeGetUniform("Frost" + i).set(0f, 0f, 0f, 0f);
+            }
         }
         RenderSystem.setShaderTexture(0, hdr.texture());
         RenderSystem.setShaderTexture(1, blooms[0].texture());

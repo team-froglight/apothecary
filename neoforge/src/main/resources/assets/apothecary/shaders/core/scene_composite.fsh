@@ -25,7 +25,10 @@ uniform float SunSize;
 uniform float CloudHeight;
 uniform vec2 Fog;             // haze start, end (blocks)
 uniform vec2 ShadowInfo;      // shadow map size (texels), its depth range (blocks)
-uniform float ProjScale;      // projection's y scale: 1 / tan(fov / 2)
+uniform mat4 SkyInvViewProj;  // the sky's look, a perspective one even when the scene's is orthographic
+uniform float AoScale;        // half a block in pixels: at the camera (orthographic) or over distance (perspective)
+uniform float Ortho;          // 1 for an orthographic camera
+uniform vec3 ShadowCenter;    // the middle of the shadowed world, where light shafts are worth marching
 uniform float MoonPhase;      // 0 full .. 4 new .. 7
 
 in vec2 uv;
@@ -341,7 +344,7 @@ float sunShadow(vec3 pos, vec3 n, float NdotL) {
 // ------------------------------------------------------------------ ambient occlusion
 
 float occlusion(vec3 pos, vec3 n, float dist) {
-    float radius = clamp(0.5 * ProjScale * 0.5 * ScreenSize.y / max(dist, 0.1), 2.0, 48.0);
+    float radius = clamp(Ortho > 0.5 ? AoScale : AoScale / max(dist, 0.1), 2.0, 48.0);
     float noise = ign(gl_FragCoord.xy + 17.0) * 6.2831853;
     float occ = 0.0;
     const int SAMPLES = 8;
@@ -364,11 +367,14 @@ float occlusion(vec3 pos, vec3 n, float dist) {
 /** Light scattered toward the eye along the ray, wherever the shadow map says the sun gets in. */
 vec3 shafts(vec3 V, float dist, float VdotL) {
     const int STEPS = 10;
-    float reach = min(dist, ShadowInfo.y * 0.5);
+    // the stretch of the ray through the shadowed world: up to the surface, or past the middle for the sky
+    float reach = ShadowInfo.y * 0.5;
+    float end = min(dist, dot(ShadowCenter - CameraPos, V) + reach * 0.5);
+    float begin = max(0.0, end - reach);
     float noise = ign(gl_FragCoord.xy + 31.0);
     float lit = 0.0;
     for (int i = 0; i < STEPS; i++) {
-        vec3 p = CameraPos + V * ((float(i) + noise) / float(STEPS) * reach);
+        vec3 p = CameraPos + V * (begin + (float(i) + noise) / float(STEPS) * (end - begin));
         vec3 sp = shadowCoord(p);
         if (!inShadowMap(sp)) continue;
         vec2 edge = min(sp.xy, 1.0 - sp.xy);
@@ -378,7 +384,7 @@ vec3 shafts(vec3 V, float dist, float VdotL) {
     lit /= float(STEPS);
     float g = 0.65;
     float phase = (1.0 - g * g) / pow(1.0 + g * g - 2.0 * g * VdotL, 1.5) * 0.01;
-    return shaftColor * lit * phase * (reach / max(ShadowInfo.y * 0.5, 1.0)) * (0.35 + 0.65 * invNoonFactor);
+    return shaftColor * lit * phase * ((end - begin) / max(reach, 1.0)) * (0.35 + 0.65 * invNoonFactor);
 }
 
 // ------------------------------------------------------------------ the pass
@@ -388,7 +394,9 @@ void main() {
     colors();
 
     float depth = texture(Sampler1, uv).r;
-    vec3 V = normalize(worldAt(uv, 1.0) - CameraPos);
+    vec4 sky = SkyInvViewProj * vec4(uv * 2.0 - 1.0, 1.0, 1.0);
+    vec3 V = normalize(sky.xyz / sky.w);           // the sky's ray; a surface's below
+    if (depth < 1.0) V = normalize(worldAt(uv, depth) - CameraPos);
     float VdotU = V.y, VdotS = dot(V, SunDir), VdotL = dot(V, lightDir);
     float dither = ign(gl_FragCoord.xy + 5.0);
 
@@ -397,7 +405,7 @@ void main() {
     if (depth >= 1.0) {
         dist = Fog.y * 4.0;
         col = GetSky(VdotU, VdotS, dither, true, true) + GetStars(V, VdotU, VdotS) + sunDisk(V) + moonDisk(V);
-        vec4 c = V.y > 0.0 ? GetVolumetricClouds(CloudHeight, V, VdotS, VdotU, dither) : vec4(0.0);
+        vec4 c = V.y > 0.0 && CloudHeight > -1e8 ? GetVolumetricClouds(CloudHeight, V, VdotS, VdotU, dither) : vec4(0.0);
         col = mix(col, c.rgb, c.a);
     } else {
         vec3 pos = worldAt(uv, depth);

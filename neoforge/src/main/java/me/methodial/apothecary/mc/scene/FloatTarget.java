@@ -42,6 +42,12 @@ final class FloatTarget {
         GlStateManager._viewport(0, 0, width, height);
     }
 
+    /** Draws into this target over all of it, depth-testing against {@code depthTexture} (0 detaches it). */
+    void bindWithDepth(int depthTexture) {
+        bind();
+        GlStateManager._glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL11.GL_TEXTURE_2D, depthTexture, 0);
+    }
+
     int texture() { return texture; }
 
     void release() {

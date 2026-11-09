@@ -16,7 +16,10 @@
         { "name": "CloudHeight", "type": "float", "count": 1, "values": [ 128.0 ] },
         { "name": "Fog", "type": "float", "count": 2, "values": [ 64.0, 192.0 ] },
         { "name": "ShadowInfo", "type": "float", "count": 2, "values": [ 1024.0, 16.0 ] },
-        { "name": "ProjScale", "type": "float", "count": 1, "values": [ 1.0 ] },
+        { "name": "SkyInvViewProj", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+        { "name": "AoScale", "type": "float", "count": 1, "values": [ 16.0 ] },
+        { "name": "Ortho", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "ShadowCenter", "type": "float", "count": 3, "values": [ 0.0, 0.0, 0.0 ] },
         { "name": "MoonPhase", "type": "float", "count": 1, "values": [ 0.0 ] }
     ]
 }
