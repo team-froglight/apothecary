@@ -437,34 +437,33 @@ vec3 waterNormal(vec3 pos, vec3 n, out float streak) {
         float h = fallHeight(across, pos.y);
         streak = h;
         float du = (fallHeight(across + e, pos.y) - h) / e, dv = (fallHeight(across, pos.y + e) - h) / e;
-        return normalize(n - side * du * 0.5 - vec3(0.0, 1.0, 0.0) * dv * 0.25);
+        return normalize(n - side * du * 0.12 - vec3(0.0, 1.0, 0.0) * dv * 0.05);
     }
     const float e = 0.15;
     float h = waveHeight(pos.xz);
     vec2 slope = vec2(waveHeight(pos.xz + vec2(e, 0.0)) - h, waveHeight(pos.xz + vec2(0.0, e)) - h) / e;
-    return normalize(vec3(-slope.x * 0.45, 1.0, -slope.y * 0.45));
+    return normalize(vec3(-slope.x * 0.1, 1.0, -slope.y * 0.1));
 }
 
 /**
  * Unbound's water: a deep blue body you see a little way into, mirroring the sky at a glance and catching the sun on
- * its waves; falling water pours in streaks, white where they run fastest.
+ * its ripples; falling water ripples as it pours down.
  */
 vec3 shadeWater(vec3 col, vec3 pos, vec3 n, vec3 V, float shadow, float dither) {
     float streak;
     vec3 nw = waterNormal(pos, n, streak);
     bool falling = n.y < 0.7;
     vec3 R = reflect(V, nw);
-    float NdotV = max0(dot(nw, -V));
+    float NdotV = max0(dot(normalize(n + nw), -V));   // the glare follows the surface, the ripples only bend it
     float fresnel = 0.06 + 0.78 * pow(1.0 - NdotV, 5.0);
     vec3 sky = GetSky(max(R.y, 0.02), dot(R, SunDir), dither, false, false);
     vec3 light = lightColor * shadow * shadowTime + ambientColor;
     // its depth swallows the reds, and a falling sheet hides more of what's behind it
-    vec3 body = vec3(0.03, 0.13, 0.28) * light;
+    vec3 body = vec3(0.02, 0.14, 0.21) * light;   // Unbound's teal
     col = mix(col * vec3(0.55, 0.8, 1.0), body, falling ? 0.45 : 0.35);
     col = mix(col, sky, fresnel);
-    if (falling) col += light * vec3(0.8, 0.9, 1.0) * smoothstep(0.7, 0.9, streak) * 0.12;   // white water
     vec3 H = normalize(lightDir - V);
-    float spec = pow(max0(dot(nw, H)), 220.0) * 18.0 + pow(max0(dot(nw, H)), 24.0) * 0.25;
+    float spec = pow(max0(dot(nw, H)), 400.0) * 6.0;
     return col + lightColor * spec * shadow * shadowTime * fresnel * 4.0;
 }
 
