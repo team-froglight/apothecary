@@ -1,0 +1,8 @@
+{
+    "vertex": "apothecary:scene_pass",
+    "fragment": "apothecary:scene_bloom_down",
+    "samplers": [ { "name": "Sampler0" } ],
+    "uniforms": [
+        { "name": "TexelSize", "type": "float", "count": 2, "values": [ 0.001, 0.001 ] }
+    ]
+}

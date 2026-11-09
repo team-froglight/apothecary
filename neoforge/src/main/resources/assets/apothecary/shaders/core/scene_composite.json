@@ -1,0 +1,22 @@
+{
+    "vertex": "apothecary:scene_pass",
+    "fragment": "apothecary:scene_composite",
+    "samplers": [
+        { "name": "Sampler0" }, { "name": "Sampler1" }, { "name": "Sampler2" }, { "name": "Sampler3" }, { "name": "Sampler4" }, { "name": "Sampler5" }
+    ],
+    "uniforms": [
+        { "name": "InvViewProj", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+        { "name": "ShadowMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+        { "name": "CameraPos", "type": "float", "count": 3, "values": [ 0.0, 0.0, 0.0 ] },
+        { "name": "SunDir", "type": "float", "count": 3, "values": [ 0.0, 1.0, 0.0 ] },
+        { "name": "SkyColor", "type": "float", "count": 3, "values": [ 0.47, 0.655, 1.0 ] },
+        { "name": "ScreenSize", "type": "float", "count": 2, "values": [ 1.0, 1.0 ] },
+        { "name": "Time", "type": "float", "count": 1, "values": [ 0.0 ] },
+        { "name": "SunSize", "type": "float", "count": 1, "values": [ 0.3 ] },
+        { "name": "CloudHeight", "type": "float", "count": 1, "values": [ 128.0 ] },
+        { "name": "Fog", "type": "float", "count": 2, "values": [ 64.0, 192.0 ] },
+        { "name": "ShadowInfo", "type": "float", "count": 2, "values": [ 1024.0, 16.0 ] },
+        { "name": "ProjScale", "type": "float", "count": 1, "values": [ 1.0 ] },
+        { "name": "MoonPhase", "type": "float", "count": 1, "values": [ 0.0 ] }
+    ]
+}

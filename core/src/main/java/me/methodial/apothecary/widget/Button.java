@@ -108,6 +108,10 @@ public class Button extends Node {
     public Button ghost() { return variant("ghost"); }
     public Button danger() { return variant("danger"); }
 
+    /** A button plays its own click, once, however many actions it has. */
+    @Override
+    protected boolean clickSound() { return false; }
+
     public Button action(Runnable r) { onClick(r); return this; }
 
     public Button action(Consumer<MouseEvent> r) { onClick(r); return this; }

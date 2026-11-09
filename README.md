@@ -26,6 +26,14 @@ closes. Focus survives a `Region` rebuild. A dialog drawn in the content marked 
 keeps it inside and gives it back when it closes. `UIScreen` tells Minecraft's narrator what focus lands on,
 using `accessibleName` (given, or the element's text, or its tooltip).
 
+## Shaded scenes
+
+`ShadedScene` (NeoForge module) draws a little 3D world into a rectangle of the GUI the way a shader pack draws the
+game: hand it a camera, a sun and a `Content` that draws with vanilla's renderers, and it renders a sun shadow map and
+the camera's view, then lights them in screen space with soft shadows, ambient occlusion, an overworld sky with
+volumetric clouds, sun, moon and stars, light shafts, bloom, a filmic tonemap and FXAA, after Complementary's look.
+`frost(...)` blurs it behind a panel drawn over it.
+
 ## Modules
 
 | Module | What it is |

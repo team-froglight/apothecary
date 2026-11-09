@@ -831,9 +831,21 @@ public class Node implements Styleable {
         return this;
     }
 
-    public Node onClick(Consumer<MouseEvent> handler) { return on(EventType.CLICK, handler); }
+    /**
+     * Makes this node a button: {@code handler} runs on a click (or Enter or Space when focused), after the UI click
+     * sound vanilla buttons make, so every clickable thing sounds like one.
+     */
+    public Node onClick(Consumer<MouseEvent> handler) {
+        return on(EventType.CLICK, e -> {
+            if (clickSound() && root() != null) root().platform().playSound("click");
+            handler.accept(e);
+        });
+    }
 
-    public Node onClick(Runnable handler) { return on(EventType.CLICK, e -> handler.run()); }
+    public Node onClick(Runnable handler) { return onClick(e -> handler.run()); }
+
+    /** Whether {@link #onClick} handlers play the UI click; false for nodes that play their own. */
+    protected boolean clickSound() { return true; }
 
     /** Delivers an event to this node's listeners only. */
     public <E extends UIEvent> void dispatchLocal(EventType<E> type, E event) {

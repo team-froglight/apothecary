@@ -1,0 +1,9 @@
+{
+    "vertex": "apothecary:scene_pass",
+    "fragment": "apothecary:scene_grade",
+    "samplers": [ { "name": "Sampler0" }, { "name": "Sampler1" } ],
+    "uniforms": [
+        { "name": "Bloom", "type": "float", "count": 1, "values": [ 0.1 ] },
+        { "name": "Frost", "type": "float", "count": 4, "values": [ 0.0, 0.0, 0.0, 0.0 ] }
+    ]
+}

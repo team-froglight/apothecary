@@ -89,9 +89,19 @@ public class BlockLogo extends Node {
         };
     }
 
+    /**
+     * The block size that fits {@code width}, snapped down to whole device pixels: the painter rounds each block to
+     * whole pixels, and rounding a fitted size up would push the title past its box.
+     */
+    protected float fitted(Canvas c, float width) {
+        float u = LogoPainter.fit(runs, unit, width);
+        float ps = c.deviceMatrix().approxScale();
+        return ps > 0 ? Math.max(1f, (float) Math.floor(u * ps)) / ps : u;
+    }
+
     @Override
     protected void paintContent(Canvas c, Rect r) {
-        float u = fit ? LogoPainter.fit(runs, unit, r.width()) : unit;
+        float u = fit ? fitted(c, r.width()) : unit;
         float w = LogoPainter.width(runs, u), h = LogoPainter.height(runs, u);
         float time = root() != null ? root().time() : 0;
         LogoPainter.Motion motion = null;
