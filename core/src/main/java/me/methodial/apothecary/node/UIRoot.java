@@ -23,7 +23,9 @@ import me.methodial.apothecary.style.Align;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
@@ -60,7 +62,8 @@ public class UIRoot {
     private final Platform platform;
     private final Animator animator = new Animator();
     private final List<Sheet> sheets = new ArrayList<>();
-    private final int[] sheetVersions = new int[64];
+    /** Each sheet's version when last styled from, by identity, so an edit to any sheet restyles. */
+    private final Map<Sheet, Integer> sheetVersions = new IdentityHashMap<>();
     private final Node rootNode = new Node("root");
     private final Node contentLayer = new Node("layer").cls("content-layer");
     private final Node popupLayer = new Node("layer").cls("popup-layer");
@@ -142,12 +145,14 @@ public class UIRoot {
     /** Adds a sheet; later sheets win over earlier ones at equal specificity. */
     public UIRoot addSheet(Sheet s) {
         if (!sheets.contains(s)) sheets.add(s);
+        sheetVersions.put(s, s.version());
         restyleAll();
         return this;
     }
 
     public UIRoot removeSheet(Sheet s) {
         sheets.remove(s);
+        sheetVersions.remove(s);
         restyleAll();
         return this;
     }
@@ -192,12 +197,15 @@ public class UIRoot {
         settleFocus();
         dt = Math.max(0, Math.min(dt, 0.25f));
         time += dt;
-        for (int i = 0; i < sheets.size() && i < sheetVersions.length; i++) {
-            if (sheets.get(i).version() != sheetVersions[i]) {
-                sheetVersions[i] = sheets.get(i).version();
-                restyleAll();
+        boolean edited = false;
+        for (Sheet s : sheets) {
+            Integer seen = sheetVersions.get(s);
+            if (seen == null || seen != s.version()) {
+                sheetVersions.put(s, s.version());
+                edited = true;
             }
         }
+        if (edited) restyleAll();
         animator.tick(dt);
         Length.setViewport(width, height);
         rootNode.frame(dt, time);

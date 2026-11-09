@@ -287,6 +287,25 @@ class LayoutTest {
     }
 
     @Test
+    void editingAnySheetRestylesHoweverManyThereAre() {
+        Node n = new Node().cls("x");
+        UIRoot r = root(n, 200, 200);
+        Sheet[] many = new Sheet[70];
+        for (int i = 0; i < many.length; i++) r.addSheet(many[i] = new Sheet("s" + i));
+        r.update(0.016f);
+        many[69].rule(cls("x"), s -> s.w(30));
+        r.update(0.016f);
+        assertEquals(30, n.width(), 0.01, "an edit to the 70th sheet is seen");
+
+        // Removing an earlier sheet shifts the rest down the list; edits to them still count.
+        r.removeSheet(many[0]);
+        r.update(0.016f);
+        many[69].rule(cls("x"), s -> s.w(45));
+        r.update(0.016f);
+        assertEquals(45, n.width(), 0.01);
+    }
+
+    @Test
     void slidingIndicatorAlignsWithTargetInsideBorderedParent() {
         me.methodial.apothecary.widget.SegmentedControl<String> seg = new me.methodial.apothecary.widget.SegmentedControl<String>()
                 .option("a", "Alpha").option("b", "Beta");
