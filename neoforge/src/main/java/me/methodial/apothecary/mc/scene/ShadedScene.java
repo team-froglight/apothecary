@@ -17,6 +17,8 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.resources.ResourceLocation;
 import org.joml.Matrix4f;
+import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL30;
 import org.joml.Matrix4fStack;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
@@ -87,6 +89,15 @@ public final class ShadedScene implements AutoCloseable {
     private static final int MAX_FROST = 4;
     private final float[] frosts = new float[MAX_FROST * 4];
     private int frostCount;
+    /** Point lights (block light: lanterns, lava, glowstone...), x y z range / r g b intensity each. */
+    private static final int MAX_LIGHTS = 128;
+    private final float[] lights = new float[MAX_LIGHTS * 8];
+    private int lightCount;
+    private int lightTexture = -1;
+    private final java.nio.FloatBuffer lightData = org.lwjgl.BufferUtils.createFloatBuffer(MAX_LIGHTS * 8);
+    /** The volumetric clouds' scale against Unbound's: above 1 makes them smaller, for a little world. */
+    private float cloudScale = 1f;
+
     /** Screen-camera mode: the caller's world-to-GUI transform, its eye, and the sky's look direction. */
     private boolean screen;
     private final Matrix4f worldToGui = new Matrix4f();
@@ -190,6 +201,36 @@ public final class ShadedScene implements AutoCloseable {
     /** The cloud layer's height, in world y; {@code Float.NaN} for none (the caller draws its own). */
     public ShadedScene clouds(float height) {
         cloudHeight = height;
+        return this;
+    }
+
+    /** The clouds smaller by {@code scale} (Unbound's are kilometres across; a map of floating islands wants tens of blocks). */
+    public ShadedScene cloudScale(float scale) {
+        cloudScale = Math.max(1e-3f, scale);
+        return this;
+    }
+
+    /** No point lights. */
+    public ShadedScene clearLights() {
+        lightCount = 0;
+        return this;
+    }
+
+    /**
+     * A point of block light at {@code (x, y, z)} reaching {@code range} blocks, in colour {@code (r, g, b)} (above 1
+     * for brighter): lit surfaces near it pick it up in the lighting pass, as a shader pack's block light. Up to 128.
+     */
+    public ShadedScene addLight(float x, float y, float z, float range, float r, float g, float b) {
+        if (lightCount == MAX_LIGHTS) return this;
+        int i = lightCount++ * 8;
+        lights[i] = x;
+        lights[i + 1] = y;
+        lights[i + 2] = z;
+        lights[i + 3] = range;
+        lights[i + 4] = r;
+        lights[i + 5] = g;
+        lights[i + 6] = b;
+        lights[i + 7] = 1f;
         return this;
     }
 
@@ -409,7 +450,26 @@ public final class ShadedScene implements AutoCloseable {
         RenderSystem.setShaderTexture(3, NOISE);
         RenderSystem.setShaderTexture(4, sunTexture);
         RenderSystem.setShaderTexture(5, moonTexture);
+        s.safeGetUniform("LightCount").set((float) lightCount);
+        s.safeGetUniform("CloudScale").set(cloudScale);
+        RenderSystem.setShaderTexture(6, uploadLights());
         blit(s);
+    }
+
+    /** The point lights as a 2-by-128 float texture: position and range, then colour, one row each. */
+    private int uploadLights() {
+        if (lightTexture < 0) {
+            lightTexture = GlStateManager._genTexture();
+            GlStateManager._bindTexture(lightTexture);
+            GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
+            GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+        }
+        lightData.clear();
+        lightData.put(lights, 0, MAX_LIGHTS * 8).flip();
+        GlStateManager._bindTexture(lightTexture);
+        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_RGBA32F, 2, MAX_LIGHTS, 0, GL11.GL_RGBA, GL11.GL_FLOAT, lightData);
+        GlStateManager._bindTexture(0);
+        return lightTexture;
     }
 
     /** Down the mip chain with a 13-tap filter, then back up with a tent, adding as it goes. */
@@ -509,6 +569,8 @@ public final class ShadedScene implements AutoCloseable {
         scene = shadow = null;
         hdr.release();
         ldr.release();
+        if (lightTexture >= 0) GlStateManager._deleteTexture(lightTexture);
+        lightTexture = -1;
         for (FloatTarget b : blooms) b.release();
     }
 }

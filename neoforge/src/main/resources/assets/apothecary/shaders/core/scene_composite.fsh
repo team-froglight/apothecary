@@ -13,6 +13,7 @@ uniform sampler2D Sampler2;   // shadow map depth, from the sun (or the moon)
 uniform sampler2D Sampler3;   // Complementary's noise.png, for the clouds
 uniform sampler2D Sampler4;   // the sun's picture
 uniform sampler2D Sampler5;   // the moon's phases, 4 by 2, as vanilla's moon_phases.png
+uniform sampler2D Sampler6;   // point lights: per row, position and range, then colour
 
 uniform mat4 InvViewProj;
 uniform mat4 ShadowMat;
@@ -30,6 +31,8 @@ uniform float AoScale;        // half a block in pixels: at the camera (orthogra
 uniform float Ortho;          // 1 for an orthographic camera
 uniform vec3 ShadowCenter;    // the middle of the shadowed world, where light shafts are worth marching
 uniform float MoonPhase;      // 0 full .. 4 new .. 7
+uniform float LightCount;
+uniform float CloudScale;     // above 1: smaller clouds, for a little world
 
 in vec2 uv;
 out vec4 fragColor;
@@ -236,10 +239,9 @@ float GetCloudNoise(vec3 tracePos, float cloudAltitude, float cloudPlayerPosY) {
     return noise - (threshold * 0.2 + 0.25);
 }
 
-vec4 GetVolumetricClouds(float cloudAltitude, vec3 nPlayerPos, float VdotS, float VdotU, float dither) {
+vec4 GetVolumetricClouds(float cloudAltitude, vec3 nPlayerPos, float VdotS, float VdotU, float dither, vec3 cameraPos) {
     const float distanceThreshold = 4000.0;
     vec4 volumetricClouds = vec4(0.0);
-    vec3 cameraPos = CameraPos;
     float higherPlaneAltitude = cloudAltitude + cloudStretch;
     float lowerPlaneAltitude = cloudAltitude - cloudStretch;
     float lowerPlaneDistance = (lowerPlaneAltitude - cameraPos.y) / nPlayerPos.y;
@@ -362,6 +364,26 @@ float occlusion(vec3 pos, vec3 n, float dist) {
     return clamp01(1.0 - occ / float(SAMPLES) * 1.6);
 }
 
+// ------------------------------------------------------------------ block light
+
+/** Light from lanterns, lava and the like: each point's colour, falling off over its range, wrapped softly round corners. */
+vec3 blockLight(vec3 pos, vec3 n) {
+    vec3 sum = vec3(0.0);
+    int count = int(LightCount);
+    for (int i = 0; i < 128; i++) {
+        if (i >= count) break;
+        vec4 at = texelFetch(Sampler6, ivec2(0, i), 0);
+        vec3 d = at.xyz - pos;
+        float dist = length(d);
+        if (dist >= at.w) continue;
+        float falloff = 1.0 - dist / at.w;
+        falloff *= falloff;
+        float wrap = dist < 1e-3 ? 1.0 : max0(dot(n, d / dist)) * 0.6 + 0.4;
+        sum += texelFetch(Sampler6, ivec2(1, i), 0).rgb * falloff * wrap;
+    }
+    return sum;
+}
+
 // ------------------------------------------------------------------ light shafts
 
 /** Light scattered toward the eye along the ray, wherever the shadow map says the sun gets in. */
@@ -405,7 +427,16 @@ void main() {
     if (depth >= 1.0) {
         dist = Fog.y * 4.0;
         col = GetSky(VdotU, VdotS, dither, true, true) + GetStars(V, VdotU, VdotS) + sunDisk(V) + moonDisk(V);
-        vec4 c = V.y > 0.0 && CloudHeight > -1e8 ? GetVolumetricClouds(CloudHeight, V, VdotS, VdotU, dither) : vec4(0.0);
+        vec4 c = vec4(0.0);
+        if (CloudHeight > -1e8) {
+            // The camera's own ray through this pixel (an orthographic one's are parallel, looking down; the sky's
+            // lens is only for its colour). Cloud space is the world scaled up, so the clouds come out smaller, and an
+            // orthographic ray starts its march near the world rather than at its far-off near plane.
+            vec3 near = worldAt(uv, 0.0);
+            vec3 ray = normalize(worldAt(uv, 1.0) - near);
+            vec3 from = Ortho > 0.5 ? near + ray * (dot(ShadowCenter - near, ray) - ShadowInfo.y * 0.25) : CameraPos;
+            c = GetVolumetricClouds(CloudHeight * CloudScale, ray, dot(ray, SunDir), ray.y, dither, from * CloudScale);
+        }
         col = mix(col, c.rgb, c.a);
     } else {
         vec3 pos = worldAt(uv, depth);
@@ -417,7 +448,8 @@ void main() {
         float shadow = NdotL > 0.0 ? sunShadow(pos, n, NdotL) : 0.0;
         float ao = occlusion(pos, n, dist);
         // sunlight where it reaches, sky light from above everywhere, as Complementary mixes them
-        vec3 sceneLighting = lightColor * NdotL * shadow * shadowTime + ambientColor * (0.75 + 0.25 * n.y) * ao;
+        vec3 sceneLighting = lightColor * NdotL * shadow * shadowTime + ambientColor * (0.75 + 0.25 * n.y) * ao
+                + blockLight(pos, n) * (0.5 + 0.5 * ao);
         col = albedo * sceneLighting;
 
         float haze = smoothstep(Fog.x, Fog.y, dist);
