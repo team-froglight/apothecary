@@ -121,15 +121,15 @@ public class TextArea extends ValueWidget<String> {
         }
         switch (k) {
             case KeyEvent.KEY_BACKSPACE -> {
-                if (!hasSelection()) anchor = Math.max(0, caret - 1);
+                if (!hasSelection()) anchor = before(caret);
                 replaceSelection("");
             }
             case KeyEvent.KEY_DELETE -> {
-                if (!hasSelection()) anchor = Math.min(value.length(), caret + 1);
+                if (!hasSelection()) anchor = after(caret);
                 replaceSelection("");
             }
-            case KeyEvent.KEY_LEFT -> move(hasSelection() && !e.shift() ? selStart() : caret - 1, e.shift());
-            case KeyEvent.KEY_RIGHT -> move(hasSelection() && !e.shift() ? selEnd() : caret + 1, e.shift());
+            case KeyEvent.KEY_LEFT -> move(hasSelection() && !e.shift() ? selStart() : before(caret), e.shift());
+            case KeyEvent.KEY_RIGHT -> move(hasSelection() && !e.shift() ? selEnd() : after(caret), e.shift());
             case KeyEvent.KEY_UP -> move(vertical(-1), e.shift());
             case KeyEvent.KEY_DOWN -> move(vertical(1), e.shift());
             case KeyEvent.KEY_HOME -> move(word ? 0 : lineStart(lineOf(caret)), e.shift());
@@ -150,6 +150,11 @@ public class TextArea extends ValueWidget<String> {
         caret = Math.max(0, Math.min(value.length(), to));
         if (!extend) anchor = caret;
     }
+
+    // One character to either side: an emoji or other code point past U+FFFF is two chars, never split.
+    private int before(int i) { return i <= 0 ? 0 : value.offsetByCodePoints(Math.min(i, value.length()), -1); }
+
+    private int after(int i) { return i >= value.length() ? value.length() : value.offsetByCodePoints(Math.max(i, 0), 1); }
 
     // ------------------------------------------------------------------ wrapped lines
 
