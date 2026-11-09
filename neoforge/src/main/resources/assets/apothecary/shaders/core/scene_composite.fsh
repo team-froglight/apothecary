@@ -413,11 +413,23 @@ vec3 shafts(vec3 V, float dist, float VdotL) {
 
 // ------------------------------------------------------------------ liquids (Unbound's look)
 
+/** The noise smoothly between its texels (a linear filter's slope jumps at each one, which shows as lines). */
+vec2 smoothNoise(vec2 uv) {
+    ivec2 size = textureSize(Sampler3, 0);
+    vec2 p = uv * vec2(size) - 0.5;
+    vec2 i = floor(p), f = p - i;
+    f = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+    ivec2 a = ivec2(mod(i, vec2(size))), b = ivec2(mod(i + 1.0, vec2(size)));
+    vec2 n00 = texelFetch(Sampler3, a, 0).rg, n10 = texelFetch(Sampler3, ivec2(b.x, a.y), 0).rg;
+    vec2 n01 = texelFetch(Sampler3, ivec2(a.x, b.y), 0).rg, n11 = texelFetch(Sampler3, b, 0).rg;
+    return mix(mix(n00, n10, f.x), mix(n01, n11, f.x), f.y);
+}
+
 /** Two drifting layers of noise, crossing: the water's swell. */
 float waveHeight(vec2 p) {
     float t = Time;
-    return texture(Sampler3, p * 0.045 + vec2(t * 0.0045, t * 0.0030)).r * 0.65
-         + texture(Sampler3, p * 0.11 + vec2(-t * 0.0060, t * 0.0075)).g * 0.35;
+    return smoothNoise(p * 0.045 + vec2(t * 0.0045, t * 0.0030)).r * 0.65
+         + smoothNoise(p * 0.11 + vec2(-t * 0.0060, t * 0.0075)).g * 0.35;
 }
 
 /** The surface's normal, tilted by the same slow waves whether the water lies still or falls (Unbound draws both alike). */
@@ -451,7 +463,7 @@ vec3 shadeWater(vec3 pos, vec3 n, vec3 V, float shadow, float dither, vec3 light
     vec3 body = vec3(0.02, 0.13, 0.2) * light;   // Unbound's blue-teal
     vec3 col = mix(seen * vec3(0.12, 0.42, 0.62), body, 0.55);
     // the ripples' light and shade, as the sky lights their slopes
-    col *= 1.0 + 2.0 * (d.x * 0.6 + d.z * 0.4 + d.y);
+    col *= 1.0 + 1.2 * (d.x * 0.6 + d.z * 0.4 + d.y);
     vec3 R = reflect(V, nw);
     float NdotV = max0(dot(normalize(n + nw), -V));
     float fresnel = 0.08 + 0.8 * pow(1.0 - NdotV, 4.0);
