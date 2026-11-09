@@ -7,6 +7,7 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import me.methodial.apothecary.geom.Affine;
+import me.methodial.apothecary.mc.render.McCanvas;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.resources.ResourceLocation;
 import org.joml.Matrix4f;
@@ -157,7 +158,7 @@ public final class TtfText {
         float shear = syntheticItalic ? ITALIC_SHEAR : 0;
 
         RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
+        McCanvas.blendOver();
         RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
         if (shadow) {
             int a = (argb >>> 24);

@@ -2,6 +2,7 @@ package me.methodial.apothecary.mc.render;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.pipeline.TextureTarget;
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
@@ -157,6 +158,16 @@ public final class McCanvas implements Canvas {
         return groups.isEmpty() ? Minecraft.getInstance().getMainRenderTarget() : groups.peek().target();
     }
 
+    /**
+     * "Over" for colour and alpha alike, for everything the canvas draws. Vanilla's default blend writes the source's
+     * alpha over the target's, which on the screen is harmless, but inside a group layer would leave each pixel's alpha
+     * at whatever was drawn there last; {@link #endGroup} composites the layer by that alpha, so it has to add up.
+     */
+    public static void blendOver() {
+        RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,
+                GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
+    }
+
     @Override
     public void beginGroup(float alpha) {
         RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
@@ -188,9 +199,13 @@ public final class McCanvas implements Canvas {
         RenderSystem.setShader(GameRenderer::getPositionTexShader);
         RenderSystem.setShaderTexture(0, grp.target().getColorTextureId());
         RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
+        // The layer holds premultiplied colour (each draw into it scaled its colour by its alpha), so it goes on with
+        // ONE rather than SRC_ALPHA, which would multiply by alpha a second time and darken every soft edge. The
+        // group's opacity scales colour and alpha alike.
+        RenderSystem.blendFunc(GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
         RenderSystem.disableDepthTest();
-        RenderSystem.setShaderColor(1, 1, 1, grp.alpha());
+        float a = grp.alpha();
+        RenderSystem.setShaderColor(a, a, a, a);
         Matrix4f id = new Matrix4f();
         BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
         b.addVertex(id, 0, gh, 0).setUv(0, 0);
@@ -199,6 +214,7 @@ public final class McCanvas implements Canvas {
         b.addVertex(id, 0, 0, 0).setUv(0, 1);
         BufferUploader.drawWithShader(b.buildOrThrow());
         RenderSystem.setShaderColor(1, 1, 1, 1);
+        RenderSystem.defaultBlendFunc();
         RenderSystem.enableDepthTest();
         applyScissor();
     }
@@ -219,7 +235,7 @@ public final class McCanvas implements Canvas {
         // of 0 and writes depth, so with the test on, a tooltip's box drawn later let earlier text (a stack count) show through.
         RenderSystem.disableDepthTest();
         RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
+        blendOver();
         RenderSystem.disableCull();
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         Matrix4f pose = g.pose().last().pose();
@@ -275,7 +291,7 @@ public final class McCanvas implements Canvas {
         // As in fillRects: shapes are painted back to front and must cover earlier text, whatever its depth.
         RenderSystem.disableDepthTest();
         RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
+        blendOver();
         RenderSystem.disableCull();
         RenderSystem.setShader(() -> sh);
         RenderSystem.setShaderColor(1, 1, 1, opacity);
@@ -373,7 +389,7 @@ public final class McCanvas implements Canvas {
         g.flush();
         RenderSystem.disableDepthTest();
         RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
+        blendOver();
         RenderSystem.disableCull();
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
@@ -623,7 +639,7 @@ public final class McCanvas implements Canvas {
         RenderSystem.setShaderTexture(0, rl);
         RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
         RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
+        blendOver();
         Matrix4f pose = g.pose().last().pose();
         BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
         float[] us = {u0, u0, u1, u1}, vs = {v0, v1, v1, v0};
