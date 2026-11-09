@@ -63,6 +63,8 @@ public final class Animator {
 
     /** Runs {@code r} every {@code seconds} until cancelled with {@link #remove}. */
     public Ticking every(float seconds, Runnable r) {
+        // A period of zero (or NaN) would never use up a frame's time, and the loop below would never end.
+        if (!(seconds > 0)) throw new IllegalArgumentException("every() needs a period above 0, got " + seconds);
         float[] acc = {0};
         return add(dt -> {
             acc[0] += dt;
