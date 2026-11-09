@@ -455,13 +455,13 @@ vec3 shadeWater(vec3 col, vec3 pos, vec3 n, vec3 V, float shadow, float dither) 
     bool falling = n.y < 0.7;
     vec3 R = reflect(V, nw);
     float NdotV = max0(dot(normalize(n + nw), -V));   // the glare follows the surface, the ripples only bend it
-    float fresnel = 0.06 + 0.78 * pow(1.0 - NdotV, 5.0);
+    float fresnel = 0.1 + 0.8 * pow(1.0 - NdotV, 4.0);
     vec3 sky = GetSky(max(R.y, 0.02), dot(R, SunDir), dither, false, false);
     vec3 light = lightColor * shadow * shadowTime + ambientColor;
     // its depth swallows the reds, and a falling sheet hides more of what's behind it
-    vec3 body = vec3(0.02, 0.14, 0.21) * light;   // Unbound's teal
-    col = mix(col * vec3(0.55, 0.8, 1.0), body, falling ? 0.45 : 0.35);
-    col = mix(col, sky, fresnel);
+    vec3 body = vec3(0.012, 0.085, 0.16) * light;   // Unbound's deep blue-teal
+    col = mix(col * vec3(0.35, 0.65, 0.9), body, falling ? 0.6 : 0.55);
+    col = mix(col, sky * vec3(0.6, 0.78, 0.95), fresnel);   // the sky as the water tints it
     vec3 H = normalize(lightDir - V);
     float spec = pow(max0(dot(nw, H)), 400.0) * 6.0;
     return col + lightColor * spec * shadow * shadowTime * fresnel * 4.0;
