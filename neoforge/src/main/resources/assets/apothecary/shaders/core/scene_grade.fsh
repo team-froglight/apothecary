@@ -7,7 +7,7 @@
 uniform sampler2D Sampler0;   // the lit scene, linear HDR
 uniform sampler2D Sampler1;   // the bloom pyramid, summed
 uniform float Bloom;
-uniform vec4 Frost0, Frost1, Frost2, Frost3;   // frosted rectangles (u0, v0, u1, v1): the bloom's blur there, for panels over it
+uniform vec4 Frost0, Frost1, Frost2, Frost3, Frost4, Frost5, Frost6, Frost7;   // frosted rectangles (u0, v0, u1, v1): the bloom's blur there, for panels over it
 
 in vec2 uv;
 out vec4 fragColor;
@@ -70,7 +70,8 @@ vec3 saturation(vec3 color) {
 void main() {
     vec3 color = texture(Sampler0, uv).rgb;
     vec3 blur = texture(Sampler1, uv).rgb / BLOOM_LEVELS;
-    bool frosted = inside(Frost0) || inside(Frost1) || inside(Frost2) || inside(Frost3);
+    bool frosted = inside(Frost0) || inside(Frost1) || inside(Frost2) || inside(Frost3)
+            || inside(Frost4) || inside(Frost5) || inside(Frost6) || inside(Frost7);
     color = frosted ? blur : mix(color, blur, Bloom);
 
     color = saturation(tonemap(color));

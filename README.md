@@ -32,7 +32,10 @@ using `accessibleName` (given, or the element's text, or its tooltip).
 game: hand it a camera, a sun and a `Content` that draws with vanilla's renderers, and it renders a sun shadow map and
 the camera's view, then lights them in screen space with soft shadows, ambient occlusion, an overworld sky with
 volumetric clouds, sun, moon and stars, light shafts, bloom, a filmic tonemap and FXAA, after Complementary's look.
-`frost(...)` blurs it behind a panel drawn over it.
+`frost(...)` blurs it behind a panel drawn over it (up to eight). `addLight(...)` adds point lights (lanterns and the
+like), and with `materials(true)` the content draws its water, lava and light-emitting surfaces once more as a mask
+(`Pass.MATERIAL`) so they shade as Unbound's do: waves, sky reflections and a sun glint on water, stirring lava, and
+light sources glowing from their bright parts.
 
 ## Modules
 

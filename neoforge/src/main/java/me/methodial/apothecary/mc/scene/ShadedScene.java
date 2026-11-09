@@ -45,6 +45,13 @@ public final class ShadedScene implements AutoCloseable {
         /** The camera's view: surfaces in their own colours, unlit (the scene lights them). */
         SCENE,
         /**
+         * Only with {@link #materials}: water, lava and light-emitting surfaces again, as a mask, so they shade as what
+         * they are (Unbound's water, with waves, sky reflections and a glint of the sun; lava, glowing and stirring;
+         * lanterns and the like, their bright parts glowing). Draw them as in {@link #SCENE}, with blending off and the
+         * shader colour red for water, green for lava, blue for light; the depth is the scene's (tested, not written).
+         */
+        MATERIAL,
+        /**
          * Light that needs no lighting: lanterns, glows, beams, sparks. Added onto the lit picture, depth-tested
          * against the scene (not writing depth), so what's in front still hides it.
          */
@@ -86,7 +93,7 @@ public final class ShadedScene implements AutoCloseable {
     private float bloom = 0.1f;
     private float shiftX, shiftY;
     /** Frosted rectangles (GUI units, x y w h each), blurred behind panels drawn over the scene. */
-    private static final int MAX_FROST = 4;
+    private static final int MAX_FROST = 8;
     private final float[] frosts = new float[MAX_FROST * 4];
     private int frostCount;
     /** Point lights (block light: lanterns, lava, glowstone...), x y z range / r g b intensity each. */
@@ -100,6 +107,7 @@ public final class ShadedScene implements AutoCloseable {
 
     /** Screen-camera mode: the caller's world-to-GUI transform, its eye, and the sky's look direction. */
     private boolean screen;
+    private boolean materials;
     private final Matrix4f worldToGui = new Matrix4f();
     private final Vector3f screenEye = new Vector3f();
     private float skyYaw, skyPitch;
@@ -155,7 +163,7 @@ public final class ShadedScene implements AutoCloseable {
         return this;
     }
 
-    /** One more frosted rectangle (up to four; more are ignored), for a screen with several panels. */
+    /** One more frosted rectangle (up to eight; more are ignored), for a screen with several panels. */
     public ShadedScene addFrost(float x, float y, float w, float h) {
         if (frostCount == MAX_FROST || w <= 0f || h <= 0f) return this;
         frosts[frostCount * 4] = x;
@@ -201,6 +209,12 @@ public final class ShadedScene implements AutoCloseable {
     /** The cloud layer's height, in world y; {@code Float.NaN} for none (the caller draws its own). */
     public ShadedScene clouds(float height) {
         cloudHeight = height;
+        return this;
+    }
+
+    /** Whether the content draws water, lava and light in {@link Pass#MATERIAL}, so they shade as what they are. */
+    public ShadedScene materials(boolean on) {
+        materials = on;
         return this;
     }
 
@@ -265,7 +279,7 @@ public final class ShadedScene implements AutoCloseable {
     // ------------------------------------------------------------------ state
 
     private TextureTarget scene, shadow;
-    private final FloatTarget hdr = new FloatTarget(), ldr = new FloatTarget();
+    private final FloatTarget hdr = new FloatTarget(), ldr = new FloatTarget(), material = new FloatTarget();
     private final FloatTarget[] blooms = new FloatTarget[BLOOM_LEVELS];
     private final Matrix4f view = new Matrix4f(), proj = new Matrix4f(), viewProj = new Matrix4f(), inverse = new Matrix4f();
     private final Matrix4f shadowView = new Matrix4f(), shadowProj = new Matrix4f(), shadowMat = new Matrix4f();
@@ -275,6 +289,8 @@ public final class ShadedScene implements AutoCloseable {
     private float aoScale;
     private final Matrix4f turn = new Matrix4f();
     private final Vector3f eye = new Vector3f(), scratch = new Vector3f(), from = new Vector3f(), up = new Vector3f(), light = new Vector3f();
+    /** The direction the shadow map is cast along: the light, in steps. */
+    private final Vector3f shadowLight = new Vector3f();
     private final Vector4f clip = new Vector4f();
     private final PoseStack pose = new PoseStack();
     private float gx, gy, gw, gh;
@@ -327,6 +343,21 @@ public final class ShadedScene implements AutoCloseable {
         Lighting.setupLevel();
         content.draw(pose, buffers, Pass.SCENE);
         buffers.endBatch();
+
+        // the materials' mask, over the surfaces they cover
+        material.bindWithDepth(scene.getDepthTextureId());
+        GlStateManager._clearColor(0f, 0f, 0f, 0f);
+        GlStateManager._clear(GL11.GL_COLOR_BUFFER_BIT, Minecraft.ON_OSX);
+        if (materials) {
+            RenderSystem.depthMask(false);
+            RenderSystem.depthFunc(GL11.GL_LEQUAL);
+            RenderSystem.disableBlend();
+            content.draw(pose, buffers, Pass.MATERIAL);
+            buffers.endBatch();
+            RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+            RenderSystem.depthMask(true);
+        }
+        material.bindWithDepth(0);
         Lighting.setupFor3DItems();
 
         RenderSystem.disableDepthTest();
@@ -367,6 +398,7 @@ public final class ShadedScene implements AutoCloseable {
         if (shadow == null) shadow = new TextureTarget(shadowSize, shadowSize, true, Minecraft.ON_OSX);
         else if (shadow.width != shadowSize) shadow.resize(shadowSize, shadowSize, Minecraft.ON_OSX);
         hdr.resize(pw, ph);
+        material.resize(pw, ph);
         ldr.resize(pw, ph);
         int bw = pw, bh = ph;
         for (FloatTarget b : blooms) {
@@ -418,9 +450,15 @@ public final class ShadedScene implements AutoCloseable {
         // the sun (the moon by night): an orthographic box around the shadow sphere, looking along the light
         light.set(sun);
         if (light.y < 0f) light.negate();
-        from.set(shadowCenter).fma(shadowRadius * 2f, light);
-        if (Math.abs(light.y) > 0.99f) up.set(0f, 0f, 1f); else up.set(0f, 1f, 0f);
+        // A light that turns a hair every frame makes every shadow edge crawl: follow it in half-degree steps.
+        if (shadowLight.lengthSquared() == 0f || shadowLight.dot(light) < 0.99996f) shadowLight.set(light);
+        from.set(shadowCenter).fma(shadowRadius * 2f, shadowLight);
+        if (Math.abs(shadowLight.y) > 0.99f) up.set(0f, 0f, 1f); else up.set(0f, 1f, 0f);
         shadowView.setLookAt(from, shadowCenter, up);
+        // ...and keep the map's texels on a grid fixed to the world, so they don't swim as anything moves.
+        float texel = 2f * shadowRadius / shadowSize;
+        Vector3f c = shadowView.transformPosition(shadowCenter, scratch);
+        shadowView.translateLocal((float) Math.floor(c.x / texel) * texel - c.x, (float) Math.floor(c.y / texel) * texel - c.y, 0f);
         shadowProj.setOrtho(-shadowRadius, shadowRadius, -shadowRadius, shadowRadius, 0.05f, shadowRadius * 4f);
         shadowProj.mul(shadowView, shadowMat);
     }
@@ -453,6 +491,7 @@ public final class ShadedScene implements AutoCloseable {
         s.safeGetUniform("LightCount").set((float) lightCount);
         s.safeGetUniform("CloudScale").set(cloudScale);
         RenderSystem.setShaderTexture(6, uploadLights());
+        RenderSystem.setShaderTexture(7, material.texture());
         blit(s);
     }
 
@@ -467,6 +506,12 @@ public final class ShadedScene implements AutoCloseable {
         lightData.clear();
         lightData.put(lights, 0, MAX_LIGHTS * 8).flip();
         GlStateManager._bindTexture(lightTexture);
+        // Texture animations (lava, lanterns, portals) leave the unpack state set to read a sub-rectangle of their
+        // frames: left as it is, the lights would be read from the wrong places on the frames after one.
+        GlStateManager._pixelStore(GL11.GL_UNPACK_ROW_LENGTH, 0);
+        GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
+        GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+        GlStateManager._pixelStore(GL11.GL_UNPACK_ALIGNMENT, 4);
         GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_RGBA32F, 2, MAX_LIGHTS, 0, GL11.GL_RGBA, GL11.GL_FLOAT, lightData);
         GlStateManager._bindTexture(0);
         return lightTexture;
@@ -569,6 +614,7 @@ public final class ShadedScene implements AutoCloseable {
         scene = shadow = null;
         hdr.release();
         ldr.release();
+        material.release();
         if (lightTexture >= 0) GlStateManager._deleteTexture(lightTexture);
         lightTexture = -1;
         for (FloatTarget b : blooms) b.release();

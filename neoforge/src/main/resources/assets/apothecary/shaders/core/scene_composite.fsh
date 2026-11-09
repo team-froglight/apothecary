@@ -14,6 +14,7 @@ uniform sampler2D Sampler3;   // Complementary's noise.png, for the clouds
 uniform sampler2D Sampler4;   // the sun's picture
 uniform sampler2D Sampler5;   // the moon's phases, 4 by 2, as vanilla's moon_phases.png
 uniform sampler2D Sampler6;   // point lights: per row, position and range, then colour
+uniform sampler2D Sampler7;   // materials: red where water, green where lava, blue where light-emitting
 
 uniform mat4 InvViewProj;
 uniform mat4 ShadowMat;
@@ -381,7 +382,8 @@ vec3 blockLight(vec3 pos, vec3 n) {
         float wrap = dist < 1e-3 ? 1.0 : max0(dot(n, d / dist)) * 0.6 + 0.4;
         sum += texelFetch(Sampler6, ivec2(1, i), 0).rgb * falloff * wrap;
     }
-    return sum;
+    // as a lightmap does: lights side by side brighten towards a ceiling, never piling up into daylight
+    return sum / (1.0 + dot(sum, vec3(0.333)));
 }
 
 // ------------------------------------------------------------------ light shafts
@@ -409,6 +411,52 @@ vec3 shafts(vec3 V, float dist, float VdotL) {
     return shaftColor * lit * phase * ((end - begin) / max(reach, 1.0)) * (0.35 + 0.65 * invNoonFactor);
 }
 
+// ------------------------------------------------------------------ liquids (Unbound's look)
+
+/** Two drifting layers of noise, crossing: the water's swell. */
+float waveHeight(vec2 p) {
+    float t = Time;
+    return texture(Sampler3, p * 0.045 + vec2(t * 0.0045, t * 0.0030)).r * 0.65
+         + texture(Sampler3, p * 0.11 + vec2(-t * 0.0060, t * 0.0075)).g * 0.35;
+}
+
+/** A level surface's normal, tilted by the waves; falling water keeps its own. */
+vec3 waterNormal(vec3 pos, vec3 n) {
+    if (n.y < 0.7) return n;
+    const float e = 0.15;
+    float h = waveHeight(pos.xz);
+    vec2 slope = vec2(waveHeight(pos.xz + vec2(e, 0.0)) - h, waveHeight(pos.xz + vec2(0.0, e)) - h) / e;
+    return normalize(vec3(-slope.x * 0.45, 1.0, -slope.y * 0.45));
+}
+
+/** Clear, tinted water that mirrors the sky at a glance and catches the sun on its waves. */
+vec3 shadeWater(vec3 col, vec3 pos, vec3 n, vec3 V, float shadow, float dither) {
+    vec3 nw = waterNormal(pos, n);
+    vec3 R = reflect(V, nw);
+    float NdotV = max0(dot(nw, -V));
+    float fresnel = 0.12 + 0.88 * pow(1.0 - NdotV, 5.0);
+    vec3 sky = GetSky(max(R.y, 0.02), dot(R, SunDir), dither, false, false);
+    col *= vec3(0.62, 0.84, 1.0);   // its depth swallows the reds
+    col = mix(col, sky, fresnel);
+    vec3 H = normalize(lightDir - V);
+    float spec = pow(max0(dot(nw, H)), 220.0) * 18.0 + pow(max0(dot(nw, H)), 24.0) * 0.25;
+    return col + lightColor * spec * shadow * shadowTime * fresnel * 4.0;
+}
+
+/** A light-emitting surface: unlit, and its bright parts (a lantern's flame, glowstone's crystals) glowing. */
+vec3 shadeLight(vec3 col, vec3 albedo) {
+    float lum = dot(albedo, vec3(0.299, 0.587, 0.114));
+    return max(col, albedo * (0.8 + 3.2 * smoothstep(0.35, 0.85, lum)));
+}
+
+/** Lava: its own light, in slow-stirring brighter veins. */
+vec3 shadeLava(vec3 albedo, vec3 pos) {
+    float t = Time;
+    float stir = texture(Sampler3, pos.xz * 0.06 + vec2(t * 0.002, -t * 0.0015)).b
+               * texture(Sampler3, pos.xz * 0.15 + vec2(-t * 0.003, t * 0.0025) + pos.y * 0.05).r;
+    return albedo * (2.2 + 4.0 * stir * stir);
+}
+
 // ------------------------------------------------------------------ the pass
 
 void main() {
@@ -417,16 +465,19 @@ void main() {
 
     float depth = texture(Sampler1, uv).r;
     vec4 sky = SkyInvViewProj * vec4(uv * 2.0 - 1.0, 1.0, 1.0);
-    vec3 V = normalize(sky.xyz / sky.w);           // the sky's ray; a surface's below
+    vec3 skyV = normalize(sky.xyz / sky.w);
+    vec3 V = skyV;                                 // the sky's ray; a surface's below
     if (depth < 1.0) V = normalize(worldAt(uv, depth) - CameraPos);
     float VdotU = V.y, VdotS = dot(V, SunDir), VdotL = dot(V, lightDir);
     float dither = ign(gl_FragCoord.xy + 5.0);
 
-    vec3 col;
-    float dist;
-    if (depth >= 1.0) {
-        dist = Fog.y * 4.0;
-        col = GetSky(VdotU, VdotS, dither, true, true) + GetStars(V, VdotU, VdotS) + sunDisk(V) + moonDisk(V);
+    // how much of the pixel the surfaces cover: less where something translucent (a fall fading out) lies over the sky
+    float cover = depth < 1.0 ? texture(Sampler0, uv).a : 0.0;
+    vec3 col = vec3(0.0), behind = vec3(0.0);
+    float dist = Fog.y * 4.0;
+    if (cover < 0.999) {
+        float skyUp = skyV.y, skySun = dot(skyV, SunDir);
+        col = GetSky(skyUp, skySun, dither, true, true) + GetStars(skyV, skyUp, skySun) + sunDisk(skyV) + moonDisk(skyV);
         vec4 c = vec4(0.0);
         if (CloudHeight > -1e8) {
             // The camera's own ray through this pixel (an orthographic one's are parallel, looking down; the sky's
@@ -434,15 +485,19 @@ void main() {
             // orthographic ray starts its march near the world rather than at its far-off near plane.
             vec3 near = worldAt(uv, 0.0);
             vec3 ray = normalize(worldAt(uv, 1.0) - near);
-            vec3 from = Ortho > 0.5 ? near + ray * (dot(ShadowCenter - near, ray) - ShadowInfo.y * 0.25) : CameraPos;
-            c = GetVolumetricClouds(CloudHeight * CloudScale, ray, dot(ray, SunDir), ray.y, dither, from * CloudScale);
+            // an orthographic ray starts just above the cloud layer, wherever it meets it: a sea of clouds to the edges
+            float top = CloudHeight + 16.0 / CloudScale;
+            vec3 from = Ortho > 0.5 ? near + ray * ((top - near.y) / min(ray.y, -1e-4) - 1.0) : CameraPos;
+            if (Ortho < 0.5 || ray.y < -1e-4) c = GetVolumetricClouds(CloudHeight * CloudScale, ray, dot(ray, SunDir), ray.y, dither, from * CloudScale);
         }
         col = mix(col, c.rgb, c.a);
-    } else {
+        behind = col;
+    }
+    if (depth < 1.0) {
         vec3 pos = worldAt(uv, depth);
         dist = length(pos - CameraPos);
         vec3 n = normalAt(uv, depth, pos);
-        vec3 albedo = pow(texture(Sampler0, uv).rgb, vec3(2.2));
+        vec3 albedo = pow(texture(Sampler0, uv).rgb / max(cover, 1e-3), vec3(2.2));
 
         float NdotL = max0(dot(n, lightDir));
         float shadow = NdotL > 0.0 ? sunShadow(pos, n, NdotL) : 0.0;
@@ -451,9 +506,14 @@ void main() {
         vec3 sceneLighting = lightColor * NdotL * shadow * shadowTime + ambientColor * (0.75 + 0.25 * n.y) * ao
                 + blockLight(pos, n) * (0.5 + 0.5 * ao);
         col = albedo * sceneLighting;
+        vec4 material = texture(Sampler7, uv);
+        if (material.r > 0.004) col = shadeWater(col, pos, n, V, shadow, dither);
+        else if (material.g > 0.004) col = shadeLava(albedo, pos);
+        else if (material.b > 0.004) col = shadeLight(col, albedo);
 
         float haze = smoothstep(Fog.x, Fog.y, dist);
         col = mix(col, GetSky(VdotU, VdotS, dither, false, true), haze);
+        col = mix(behind, col, cover);
     }
 
     col += shafts(V, dist, VdotL);
