@@ -95,6 +95,12 @@ public final class ShadedScene implements AutoCloseable {
     private float shiftX, shiftY;
     /** Frosted rectangles (GUI units, x y w h each), blurred behind panels drawn over the scene. */
     private static final int MAX_FROST = 8;
+    private static final String[] FROST_UNIFORMS = new String[MAX_FROST];
+
+    static {
+        for (int i = 0; i < MAX_FROST; i++) FROST_UNIFORMS[i] = "Frost" + i;
+    }
+
     private final float[] frosts = new float[MAX_FROST * 4];
     private int frostCount;
     /** Point lights (block light: lanterns, lava, glowstone...), x y z range / r g b intensity each. */
@@ -309,8 +315,8 @@ public final class ShadedScene implements AutoCloseable {
         if (!SceneShaders.ready() || w < 1 || h < 1) return;
         Minecraft mc = Minecraft.getInstance();
         RenderSystem.assertOnRenderThread();
-        // for GpuProfiler: each pass's time, under the screen drawing the scene
-        String scope = "scene " + (mc.screen == null ? "?" : mc.screen.getClass().getSimpleName());
+        // for GpuProfiler: each pass's time, under the screen drawing the scene (named only when anyone is looking)
+        String scope = GpuProfiler.enabled() ? "scene " + (mc.screen == null ? "?" : mc.screen.getClass().getSimpleName()) : null;
         GpuProfiler.mark(scope, "start");
         gx = x;
         gy = y;
@@ -374,6 +380,7 @@ public final class ShadedScene implements AutoCloseable {
             RenderSystem.disableDepthTest();
             RenderSystem.depthMask(false);
             RenderSystem.disableBlend();
+            uploadLights();
             volumetrics();
             GpuProfiler.mark(scope, "volumetrics");
             composite();
@@ -548,18 +555,22 @@ public final class ShadedScene implements AutoCloseable {
         RenderSystem.setShaderTexture(5, moonTexture);
         s.safeGetUniform("LightCount").set((float) lightCount);
         s.safeGetUniform("CloudScale").set(cloudScale);
-        RenderSystem.setShaderTexture(6, uploadLights());
+        RenderSystem.setShaderTexture(6, lightTexture);
         RenderSystem.setShaderTexture(7, material.texture());
         return s;
     }
 
-    /** The point lights as a 2-by-128 float texture: position and range, then colour, one row each. */
-    private int uploadLights() {
+    /**
+     * The point lights as a 2-by-128 float texture: position and range, then colour, one row each. Uploaded once per
+     * render, before the passes that read it; the texture's storage is made once.
+     */
+    private void uploadLights() {
         if (lightTexture < 0) {
             lightTexture = GlStateManager._genTexture();
             GlStateManager._bindTexture(lightTexture);
             GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
             GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_RGBA32F, 2, MAX_LIGHTS, 0, GL11.GL_RGBA, GL11.GL_FLOAT, (java.nio.FloatBuffer) null);
         }
         lightData.clear();
         lightData.put(lights, 0, MAX_LIGHTS * 8).flip();
@@ -570,9 +581,8 @@ public final class ShadedScene implements AutoCloseable {
         GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
         GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
         GlStateManager._pixelStore(GL11.GL_UNPACK_ALIGNMENT, 4);
-        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_RGBA32F, 2, MAX_LIGHTS, 0, GL11.GL_RGBA, GL11.GL_FLOAT, lightData);
+        GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 2, MAX_LIGHTS, GL11.GL_RGBA, GL11.GL_FLOAT, lightData);
         GlStateManager._bindTexture(0);
-        return lightTexture;
     }
 
     /** Down the mip chain with a 13-tap filter, then back up with a tent, adding as it goes. */
@@ -612,9 +622,9 @@ public final class ShadedScene implements AutoCloseable {
             if (i < frostCount) {
                 // in the scene's texture coordinates, v up
                 float fx = frosts[i * 4], fy = frosts[i * 4 + 1], fw = frosts[i * 4 + 2], fh = frosts[i * 4 + 3];
-                s.safeGetUniform("Frost" + i).set((fx - gx) / gw, 1f - (fy + fh - gy) / gh, (fx + fw - gx) / gw, 1f - (fy - gy) / gh);
+                s.safeGetUniform(FROST_UNIFORMS[i]).set((fx - gx) / gw, 1f - (fy + fh - gy) / gh, (fx + fw - gx) / gw, 1f - (fy - gy) / gh);
             } else {
-                s.safeGetUniform("Frost" + i).set(0f, 0f, 0f, 0f);
+                s.safeGetUniform(FROST_UNIFORMS[i]).set(0f, 0f, 0f, 0f);
             }
         }
         RenderSystem.setShaderTexture(0, hdr.texture());
