@@ -328,82 +328,100 @@ public final class ShadedScene implements AutoCloseable {
         VertexSorting savedSorting = RenderSystem.getVertexSorting();
         Matrix4fStack modelView = RenderSystem.getModelViewStack();
         modelView.pushMatrix();
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthMask(true);
-
-        // the sun's view: only depth matters
-        shadow.setClearColor(1f, 1f, 1f, 1f);
-        shadow.clear(Minecraft.ON_OSX);
-        shadow.bindWrite(true);
-        RenderSystem.setProjectionMatrix(shadowProj, VertexSorting.ORTHOGRAPHIC_Z);
-        modelView.identity().mul(shadowView);
-        RenderSystem.applyModelViewMatrix();
-        content.draw(pose, buffers, Pass.SHADOW);
-        buffers.endBatch();
-        GpuProfiler.mark(scope, "shadow");
-
-        // the camera's view, in the surfaces' own colours
-        scene.setClearColor(0f, 0f, 0f, 0f);
-        scene.clear(Minecraft.ON_OSX);
-        scene.bindWrite(true);
-        cameraMatrices(modelView);
-        Lighting.setupLevel();
-        content.draw(pose, buffers, Pass.SCENE);
-        buffers.endBatch();
-        GpuProfiler.mark(scope, "scene");
-
-        // the materials' mask, over the surfaces they cover
-        material.bindWithDepth(scene.getDepthTextureId());
-        GlStateManager._clearColor(0f, 0f, 0f, 0f);
-        GlStateManager._clear(GL11.GL_COLOR_BUFFER_BIT, Minecraft.ON_OSX);
-        if (materials) {
-            RenderSystem.depthMask(false);
-            RenderSystem.depthFunc(GL11.GL_LEQUAL);
-            RenderSystem.disableBlend();
-            content.draw(pose, buffers, Pass.MATERIAL);
-            buffers.endBatch();
-            RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        boolean drawn = false;
+        try {
+            RenderSystem.enableDepthTest();
             RenderSystem.depthMask(true);
+
+            // the sun's view: only depth matters
+            shadow.setClearColor(1f, 1f, 1f, 1f);
+            shadow.clear(Minecraft.ON_OSX);
+            shadow.bindWrite(true);
+            RenderSystem.setProjectionMatrix(shadowProj, VertexSorting.ORTHOGRAPHIC_Z);
+            modelView.identity().mul(shadowView);
+            RenderSystem.applyModelViewMatrix();
+            content.draw(pose, buffers, Pass.SHADOW);
+            buffers.endBatch();
+            GpuProfiler.mark(scope, "shadow");
+
+            // the camera's view, in the surfaces' own colours
+            scene.setClearColor(0f, 0f, 0f, 0f);
+            scene.clear(Minecraft.ON_OSX);
+            scene.bindWrite(true);
+            cameraMatrices(modelView);
+            Lighting.setupLevel();
+            content.draw(pose, buffers, Pass.SCENE);
+            buffers.endBatch();
+            GpuProfiler.mark(scope, "scene");
+
+            // the materials' mask, over the surfaces they cover
+            material.bindWithDepth(scene.getDepthTextureId());
+            GlStateManager._clearColor(0f, 0f, 0f, 0f);
+            GlStateManager._clear(GL11.GL_COLOR_BUFFER_BIT, Minecraft.ON_OSX);
+            if (materials) {
+                RenderSystem.depthMask(false);
+                RenderSystem.depthFunc(GL11.GL_LEQUAL);
+                RenderSystem.disableBlend();
+                content.draw(pose, buffers, Pass.MATERIAL);
+                buffers.endBatch();
+                RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+                RenderSystem.depthMask(true);
+            }
+            material.bindWithDepth(0);
+            GpuProfiler.mark(scope, "materials");
+            Lighting.setupFor3DItems();
+
+            RenderSystem.disableDepthTest();
+            RenderSystem.depthMask(false);
+            RenderSystem.disableBlend();
+            volumetrics();
+            GpuProfiler.mark(scope, "volumetrics");
+            composite();
+            GpuProfiler.mark(scope, "composite");
+
+            // light that needs no lighting, onto the lit picture, behind whatever stands in front of it
+            hdr.bindWithDepth(scene.getDepthTextureId());
+            cameraMatrices(modelView);
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthMask(false);
+            RenderSystem.enableBlend();
+            // light adds up; the alpha (where the picture wants blurring) is left as the composite wrote it
+            RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ONE,
+                    GlStateManager.SourceFactor.ZERO, GlStateManager.DestFactor.ONE);
+            content.draw(pose, buffers, Pass.GLOW);
+            buffers.endBatch();
+            GpuProfiler.mark(scope, "glow");
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.disableBlend();
+            RenderSystem.disableDepthTest();
+            hdr.bindWithDepth(0);
+
+            bloomPyramid();
+            GpuProfiler.mark(scope, "bloom");
+            grade();
+            GpuProfiler.mark(scope, "grade");
+            drawn = true;
+        } finally {
+            if (!drawn) {
+                // A pass threw: put back what the passes change, so the screen (and the rest of the frame) draws as it
+                // would have without the scene, rather than into one of its targets with its matrices.
+                material.bindWithDepth(0);
+                hdr.bindWithDepth(0);
+                RenderSystem.defaultBlendFunc();
+                RenderSystem.disableBlend();
+                RenderSystem.depthFunc(GL11.GL_LEQUAL);
+                RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+                Lighting.setupFor3DItems();
+                RenderSystem.enableDepthTest();
+                RenderSystem.depthMask(true);
+            }
+            // back onto the screen
+            mc.getMainRenderTarget().bindWrite(true);
+            RenderSystem.setProjectionMatrix(savedProj, savedSorting);
+            modelView.popMatrix();
+            RenderSystem.applyModelViewMatrix();
         }
-        material.bindWithDepth(0);
-        GpuProfiler.mark(scope, "materials");
-        Lighting.setupFor3DItems();
-
-        RenderSystem.disableDepthTest();
-        RenderSystem.depthMask(false);
-        RenderSystem.disableBlend();
-        volumetrics();
-        GpuProfiler.mark(scope, "volumetrics");
-        composite();
-        GpuProfiler.mark(scope, "composite");
-
-        // light that needs no lighting, onto the lit picture, behind whatever stands in front of it
-        hdr.bindWithDepth(scene.getDepthTextureId());
-        cameraMatrices(modelView);
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthMask(false);
-        RenderSystem.enableBlend();
-        // light adds up; the alpha (where the picture wants blurring) is left as the composite wrote it
-        RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ONE,
-                GlStateManager.SourceFactor.ZERO, GlStateManager.DestFactor.ONE);
-        content.draw(pose, buffers, Pass.GLOW);
-        buffers.endBatch();
-        GpuProfiler.mark(scope, "glow");
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.disableBlend();
-        RenderSystem.disableDepthTest();
-        hdr.bindWithDepth(0);
-
-        bloomPyramid();
-        GpuProfiler.mark(scope, "bloom");
-        grade();
-        GpuProfiler.mark(scope, "grade");
-
-        // back onto the screen, into the rectangle
-        mc.getMainRenderTarget().bindWrite(true);
-        RenderSystem.setProjectionMatrix(savedProj, savedSorting);
-        modelView.popMatrix();
-        RenderSystem.applyModelViewMatrix();
+        // into the rectangle
         present(g);
         GpuProfiler.mark(scope, "present");
         RenderSystem.enableDepthTest();
