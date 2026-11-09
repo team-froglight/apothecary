@@ -420,29 +420,16 @@ float waveHeight(vec2 p) {
          + texture(Sampler3, p * 0.11 + vec2(-t * 0.0060, t * 0.0075)).g * 0.35;
 }
 
-/** Streaks pouring down a fall: noise stretched tall, sliding down with time. */
-float fallHeight(float across, float y) {
-    float t = Time;
-    return texture(Sampler3, vec2(across * 0.09, y * 0.012 + t * 0.055)).r * 0.6
-         + texture(Sampler3, vec2(across * 0.23 + 0.37, y * 0.03 + t * 0.11)).g * 0.4;
-}
-
-/** A level surface's normal, tilted by the waves; a falling one's, by the streaks pouring down it. */
-vec3 waterNormal(vec3 pos, vec3 n, out float streak) {
-    streak = 0.0;
-    if (n.y < 0.7) {
-        vec3 side = normalize(cross(vec3(0.0, 1.0, 0.0), n));
-        float across = dot(pos, side);
-        const float e = 0.12;
-        float h = fallHeight(across, pos.y);
-        streak = h;
-        float du = (fallHeight(across + e, pos.y) - h) / e, dv = (fallHeight(across, pos.y + e) - h) / e;
-        return normalize(n - side * du * 0.2 - vec3(0.0, 1.0, 0.0) * dv * 0.08);
-    }
+/** The surface's normal, tilted by the same slow waves whether the water lies still or falls (Unbound draws both alike). */
+vec3 waterNormal(vec3 pos, vec3 n) {
+    // the surface's own two directions: across and along a level one, across and down a falling one
+    vec3 a = abs(n.y) > 0.7 ? vec3(1.0, 0.0, 0.0) : normalize(cross(vec3(0.0, 1.0, 0.0), n));
+    vec3 b = cross(n, a);
+    vec2 p = vec2(dot(pos, a), dot(pos, b));
     const float e = 0.15;
-    float h = waveHeight(pos.xz);
-    vec2 slope = vec2(waveHeight(pos.xz + vec2(e, 0.0)) - h, waveHeight(pos.xz + vec2(0.0, e)) - h) / e;
-    return normalize(vec3(-slope.x * 0.2, 1.0, -slope.y * 0.2));
+    float h = waveHeight(p);
+    vec2 slope = vec2(waveHeight(p + vec2(e, 0.0)) - h, waveHeight(p + vec2(0.0, e)) - h) / e;
+    return normalize(n - a * slope.x * 0.2 - b * slope.y * 0.2);
 }
 
 /**
@@ -452,19 +439,17 @@ vec3 waterNormal(vec3 pos, vec3 n, out float streak) {
  * {@code behind} is the sky, where nothing stands behind it.
  */
 vec3 shadeWater(vec3 pos, vec3 n, vec3 V, float shadow, float dither, vec3 lighting, vec3 behind, float depth, float amount) {
-    float streak;
-    vec3 nw = waterNormal(pos, n, streak);
-    bool falling = n.y < 0.7;
+    vec3 nw = waterNormal(pos, n);
     // what's behind, refracted: the ripples' tilt shifts where it's read, unless that lands on something in front
     vec3 d = nw - n;
-    vec2 q = uv + vec2(d.x + d.z, d.y + d.z * 0.5) * (falling ? 0.06 : 0.035);
+    vec2 q = uv + vec2(d.x + d.z, d.y + d.z * 0.5) * 0.035;
     if (texture(Sampler1, q).r < depth - 1e-5 || texture(Sampler7, q).r <= 0.004) q = uv;
     vec4 back = texture(Sampler0, q);
     vec3 seen = pow(back.rgb / max(back.a, 1e-3), vec3(2.2)) * lighting;
     seen = mix(behind, seen, back.a);
     vec3 light = lightColor * shadow * shadowTime + ambientColor;
     vec3 body = vec3(0.02, 0.13, 0.2) * light;   // Unbound's blue-teal
-    vec3 col = mix(seen * vec3(0.12, 0.42, 0.62), body, falling ? 0.62 : 0.55);
+    vec3 col = mix(seen * vec3(0.12, 0.42, 0.62), body, 0.55);
     // the ripples' light and shade, as the sky lights their slopes
     col *= 1.0 + 2.0 * (d.x * 0.6 + d.z * 0.4 + d.y);
     vec3 R = reflect(V, nw);
