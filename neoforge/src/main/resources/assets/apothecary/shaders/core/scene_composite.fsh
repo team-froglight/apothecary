@@ -437,34 +437,44 @@ vec3 waterNormal(vec3 pos, vec3 n, out float streak) {
         float h = fallHeight(across, pos.y);
         streak = h;
         float du = (fallHeight(across + e, pos.y) - h) / e, dv = (fallHeight(across, pos.y + e) - h) / e;
-        return normalize(n - side * du * 0.12 - vec3(0.0, 1.0, 0.0) * dv * 0.05);
+        return normalize(n - side * du * 0.2 - vec3(0.0, 1.0, 0.0) * dv * 0.08);
     }
     const float e = 0.15;
     float h = waveHeight(pos.xz);
     vec2 slope = vec2(waveHeight(pos.xz + vec2(e, 0.0)) - h, waveHeight(pos.xz + vec2(0.0, e)) - h) / e;
-    return normalize(vec3(-slope.x * 0.1, 1.0, -slope.y * 0.1));
+    return normalize(vec3(-slope.x * 0.2, 1.0, -slope.y * 0.2));
 }
 
 /**
- * Unbound's water: a deep blue body you see a little way into, mirroring the sky at a glance and catching the sun on
- * its ripples; falling water ripples as it pours down.
+ * Unbound's water. The scene keeps what lies behind it (the water only wrote its depth), so here it is seen through
+ * the water bent by the ripples, its reds swallowed and fading into the water's own blue-teal, with the sky mirrored
+ * at a glance and the sun glinting on the ripples. {@code amount} is how much water there is (a fall thins out below);
+ * {@code behind} is the sky, where nothing stands behind it.
  */
-vec3 shadeWater(vec3 col, vec3 pos, vec3 n, vec3 V, float shadow, float dither) {
+vec3 shadeWater(vec3 pos, vec3 n, vec3 V, float shadow, float dither, vec3 lighting, vec3 behind, float depth, float amount) {
     float streak;
     vec3 nw = waterNormal(pos, n, streak);
     bool falling = n.y < 0.7;
-    vec3 R = reflect(V, nw);
-    float NdotV = max0(dot(normalize(n + nw), -V));   // the glare follows the surface, the ripples only bend it
-    float fresnel = 0.1 + 0.8 * pow(1.0 - NdotV, 4.0);
-    vec3 sky = GetSky(max(R.y, 0.02), dot(R, SunDir), dither, false, false);
+    // what's behind, refracted: the ripples' tilt shifts where it's read, unless that lands on something in front
+    vec3 d = nw - n;
+    vec2 q = uv + vec2(d.x + d.z, d.y + d.z * 0.5) * (falling ? 0.06 : 0.035);
+    if (texture(Sampler1, q).r < depth - 1e-5 || texture(Sampler7, q).r <= 0.004) q = uv;
+    vec4 back = texture(Sampler0, q);
+    vec3 seen = pow(back.rgb / max(back.a, 1e-3), vec3(2.2)) * lighting;
+    seen = mix(behind, seen, back.a);
     vec3 light = lightColor * shadow * shadowTime + ambientColor;
-    // its depth swallows the reds, and a falling sheet hides more of what's behind it
-    vec3 body = vec3(0.012, 0.085, 0.16) * light;   // Unbound's deep blue-teal
-    col = mix(col * vec3(0.35, 0.65, 0.9), body, falling ? 0.6 : 0.55);
-    col = mix(col, sky * vec3(0.6, 0.78, 0.95), fresnel);   // the sky as the water tints it
+    vec3 body = vec3(0.02, 0.13, 0.2) * light;   // Unbound's blue-teal
+    vec3 col = mix(seen * vec3(0.12, 0.42, 0.62), body, falling ? 0.62 : 0.55);
+    // the ripples' light and shade, as the sky lights their slopes
+    col *= 1.0 + 2.0 * (d.x * 0.6 + d.z * 0.4 + d.y);
+    vec3 R = reflect(V, nw);
+    float NdotV = max0(dot(normalize(n + nw), -V));
+    float fresnel = 0.08 + 0.8 * pow(1.0 - NdotV, 4.0);
+    vec3 sky = GetSky(max(R.y, 0.02), dot(R, SunDir), dither, false, false);
+    col = mix(col, sky * vec3(0.65, 0.82, 0.95), fresnel);
     vec3 H = normalize(lightDir - V);
-    float spec = pow(max0(dot(nw, H)), 400.0) * 6.0;
-    return col + lightColor * spec * shadow * shadowTime * fresnel * 4.0;
+    col += lightColor * pow(max0(dot(nw, H)), 400.0) * 24.0 * shadow * shadowTime * fresnel;
+    return mix(seen, col, amount);
 }
 
 /** A light-emitting surface: unlit, and its bright parts (a lantern's flame, glowstone's crystals) glowing. */
@@ -531,7 +541,10 @@ void main() {
                 + blockLight(pos, n) * (0.5 + 0.5 * ao);
         col = albedo * sceneLighting;
         vec4 material = texture(Sampler7, uv);
-        if (material.r > 0.004) col = shadeWater(col, pos, n, V, shadow, dither);
+        if (material.r > 0.004) {
+            col = shadeWater(pos, n, V, shadow, dither, sceneLighting, behind, depth, clamp01(material.a));
+            cover = 1.0;   // the water saw to what lies behind it
+        }
         else if (material.g > 0.004) col = shadeLava(albedo, pos);
         else if (material.b > 0.004) col = shadeLight(col, albedo);
 
