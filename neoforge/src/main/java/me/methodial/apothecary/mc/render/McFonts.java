@@ -97,7 +97,11 @@ public final class McFonts implements TextMeasurer {
     public Family family(FontSpec spec) {
         String key = spec.family().toLowerCase(Locale.ROOT);
         Family f = FAMILIES.get(key);
-        if (f == null && key.contains(":")) f = new Family(ResourceLocation.parse(key), null, null, null, null, 1, 0);
+        if (f == null && key.contains(":")) {
+            // A font id used directly; one that isn't a valid id (it is looked up every frame) falls back quietly.
+            ResourceLocation id = ResourceLocation.tryParse(key);
+            if (id != null) f = new Family(id, null, null, null, null, 1, 0);
+        }
         return f != null ? f : FAMILIES.get("poppins");
     }
 
