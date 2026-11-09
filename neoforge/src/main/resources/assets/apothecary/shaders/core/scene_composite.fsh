@@ -15,6 +15,8 @@ uniform sampler2D Sampler4;   // the sun's picture
 uniform sampler2D Sampler5;   // the moon's phases, 4 by 2, as vanilla's moon_phases.png
 uniform sampler2D Sampler6;   // point lights: per row, position and range, then colour
 uniform sampler2D Sampler7;   // materials: red where water, green where lava, blue where light-emitting
+uniform sampler2D Sampler8;   // the clouds, from the half-size pass (Mode 1)
+uniform sampler2D Sampler9;   // the light shafts, from the half-size pass (Mode 2)
 
 uniform mat4 InvViewProj;
 uniform mat4 ShadowMat;
@@ -34,6 +36,7 @@ uniform vec3 ShadowCenter;    // the middle of the shadowed world, where light s
 uniform float MoonPhase;      // 0 full .. 4 new .. 7
 uniform float LightCount;
 uniform float CloudScale;     // above 1: smaller clouds, for a little world
+uniform float Mode;           // 1 only the clouds, 2 only the light shafts (each at half size), 0 the lighting with both
 
 in vec2 uv;
 out vec4 fragColor;
@@ -490,9 +493,27 @@ vec3 shadeLava(vec3 albedo, vec3 pos) {
 
 // ------------------------------------------------------------------ the pass
 
+/** The clouds through this pixel (none where there are none), whatever stands in front: the lighting keeps them for the sky. */
+vec4 clouds(float dither) {
+    if (CloudHeight <= -1e8) return vec4(0.0);
+    // The camera's own ray through this pixel (an orthographic one's are parallel, looking down; the sky's lens is
+    // only for its colour). Cloud space is the world scaled up, so the clouds come out smaller, and an orthographic ray
+    // starts just above the cloud layer, wherever it meets it: a sea of clouds to the edges.
+    vec3 near = worldAt(uv, 0.0);
+    vec3 ray = normalize(worldAt(uv, 1.0) - near);
+    float top = CloudHeight + 16.0 / CloudScale;
+    vec3 from = Ortho > 0.5 ? near + ray * ((top - near.y) / min(ray.y, -1e-4) - 1.0) : CameraPos;
+    if (Ortho > 0.5 && ray.y >= -1e-4) return vec4(0.0);
+    return GetVolumetricClouds(CloudHeight * CloudScale, ray, dot(ray, SunDir), ray.y, dither, from * CloudScale);
+}
+
 void main() {
     timeOfDay();
     colors();
+    if (Mode > 0.5 && Mode < 1.5) {
+        fragColor = clouds(ign(gl_FragCoord.xy + 5.0));
+        return;
+    }
 
     float depth = texture(Sampler1, uv).r;
     vec4 sky = SkyInvViewProj * vec4(uv * 2.0 - 1.0, 1.0, 1.0);
@@ -501,6 +522,12 @@ void main() {
     if (depth < 1.0) V = normalize(worldAt(uv, depth) - CameraPos);
     float VdotU = V.y, VdotS = dot(V, SunDir), VdotL = dot(V, lightDir);
     float dither = ign(gl_FragCoord.xy + 5.0);
+    if (Mode > 1.5) {
+        // only the light shafts, at half size: up to the surface, or on into the sky
+        float reach = depth < 1.0 ? length(worldAt(uv, depth) - CameraPos) : Fog.y * 4.0;
+        fragColor = vec4(shafts(V, reach, VdotL), 1.0);
+        return;
+    }
 
     // how much of the pixel the surfaces cover: less where something translucent (a fall fading out) lies over the sky
     float cover = depth < 1.0 ? texture(Sampler0, uv).a : 0.0;
@@ -510,18 +537,7 @@ void main() {
     if (cover < 0.999) {
         float skyUp = skyV.y, skySun = dot(skyV, SunDir);
         col = GetSky(skyUp, skySun, dither, true, true) + GetStars(skyV, skyUp, skySun) + sunDisk(skyV) + moonDisk(skyV);
-        vec4 c = vec4(0.0);
-        if (CloudHeight > -1e8) {
-            // The camera's own ray through this pixel (an orthographic one's are parallel, looking down; the sky's
-            // lens is only for its colour). Cloud space is the world scaled up, so the clouds come out smaller, and an
-            // orthographic ray starts its march near the world rather than at its far-off near plane.
-            vec3 near = worldAt(uv, 0.0);
-            vec3 ray = normalize(worldAt(uv, 1.0) - near);
-            // an orthographic ray starts just above the cloud layer, wherever it meets it: a sea of clouds to the edges
-            float top = CloudHeight + 16.0 / CloudScale;
-            vec3 from = Ortho > 0.5 ? near + ray * ((top - near.y) / min(ray.y, -1e-4) - 1.0) : CameraPos;
-            if (Ortho < 0.5 || ray.y < -1e-4) c = GetVolumetricClouds(CloudHeight * CloudScale, ray, dot(ray, SunDir), ray.y, dither, from * CloudScale);
-        }
+        vec4 c = texture(Sampler8, uv);   // worked out at half size
         col = mix(col, c.rgb, c.a);
         behind = col;
     }
@@ -552,6 +568,6 @@ void main() {
         col = mix(behind, col, cover);
     }
 
-    col += shafts(V, dist, VdotL);
+    col += texture(Sampler9, uv).rgb;   // the light shafts, worked out at half size
     fragColor = vec4(col, soften);
 }

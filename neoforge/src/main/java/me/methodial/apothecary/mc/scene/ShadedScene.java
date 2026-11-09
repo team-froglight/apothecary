@@ -281,6 +281,8 @@ public final class ShadedScene implements AutoCloseable {
 
     private TextureTarget scene, shadow;
     private final FloatTarget hdr = new FloatTarget(), ldr = new FloatTarget(), material = new FloatTarget();
+    /** Clouds and light shafts, at half the resolution each way: both soft, so a quarter of the pixels do. */
+    private final FloatTarget cloudTarget = new FloatTarget(), shaftTarget = new FloatTarget();
     private final FloatTarget[] blooms = new FloatTarget[BLOOM_LEVELS];
     private final Matrix4f view = new Matrix4f(), proj = new Matrix4f(), viewProj = new Matrix4f(), inverse = new Matrix4f();
     private final Matrix4f shadowView = new Matrix4f(), shadowProj = new Matrix4f(), shadowMat = new Matrix4f();
@@ -370,6 +372,8 @@ public final class ShadedScene implements AutoCloseable {
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
         RenderSystem.disableBlend();
+        volumetrics();
+        GpuProfiler.mark(scope, "volumetrics");
         composite();
         GpuProfiler.mark(scope, "composite");
 
@@ -413,6 +417,8 @@ public final class ShadedScene implements AutoCloseable {
         else if (shadow.width != shadowSize) shadow.resize(shadowSize, shadowSize, Minecraft.ON_OSX);
         hdr.resize(pw, ph);
         material.resize(pw, ph);
+        cloudTarget.resize((pw + 1) / 2, (ph + 1) / 2);
+        shaftTarget.resize((pw + 1) / 2, (ph + 1) / 2);
         ldr.resize(pw, ph);
         int bw = pw, bh = ph;
         for (FloatTarget b : blooms) {
@@ -477,9 +483,29 @@ public final class ShadedScene implements AutoCloseable {
         shadowProj.mul(shadowView, shadowMat);
     }
 
+    /** The clouds and the light shafts, each into its half-size target, for {@link #composite} to blend up. */
+    private void volumetrics() {
+        ShaderInstance s = compositeInputs();
+        s.safeGetUniform("Mode").set(1f);
+        cloudTarget.bind();
+        blit(s);
+        s.safeGetUniform("Mode").set(2f);
+        shaftTarget.bind();
+        blit(s);
+    }
+
     private void composite() {
-        ShaderInstance s = SceneShaders.composite;
+        ShaderInstance s = compositeInputs();
+        s.safeGetUniform("Mode").set(0f);
+        RenderSystem.setShaderTexture(8, cloudTarget.texture());
+        RenderSystem.setShaderTexture(9, shaftTarget.texture());
         hdr.bind();
+        blit(s);
+    }
+
+    /** The composite shader with every input of the lighting set: matrices, sun and sky, and its textures. */
+    private ShaderInstance compositeInputs() {
+        ShaderInstance s = SceneShaders.composite;
         s.safeGetUniform("InvViewProj").set(inverse);
         s.safeGetUniform("SkyInvViewProj").set(skyInverse);
         s.safeGetUniform("AoScale").set(aoScale);
@@ -506,7 +532,7 @@ public final class ShadedScene implements AutoCloseable {
         s.safeGetUniform("CloudScale").set(cloudScale);
         RenderSystem.setShaderTexture(6, uploadLights());
         RenderSystem.setShaderTexture(7, material.texture());
-        blit(s);
+        return s;
     }
 
     /** The point lights as a 2-by-128 float texture: position and range, then colour, one row each. */
@@ -629,6 +655,8 @@ public final class ShadedScene implements AutoCloseable {
         hdr.release();
         ldr.release();
         material.release();
+        cloudTarget.release();
+        shaftTarget.release();
         if (lightTexture >= 0) GlStateManager._deleteTexture(lightTexture);
         lightTexture = -1;
         for (FloatTarget b : blooms) b.release();
