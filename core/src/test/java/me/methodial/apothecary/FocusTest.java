@@ -163,6 +163,25 @@ class FocusTest {
     }
 
     @Test
+    void disabledElementIgnoresEnterAndLetsGoOfFocus() {
+        int[] clicks = {0};
+        Button buy = new Button("Buy");
+        buy.on(me.methodial.apothecary.event.EventType.CLICK, e -> clicks[0]++);
+        Node group = new Node().add(buy);
+        UIRoot r = root(group);
+        r.setFocus(buy, true);
+        r.keyDown(KeyEvent.KEY_ENTER, 0, 0);
+        assertEquals(1, clicks[0]);
+
+        group.disabled(true);
+        assertNull(r.focused(), "disabling an ancestor drops focus from inside it");
+        r.setFocus(buy, true); // set directly, past isFocusable
+        r.keyDown(KeyEvent.KEY_ENTER, 0, 0);
+        r.keyDown(KeyEvent.KEY_SPACE, 0, 0);
+        assertEquals(1, clicks[0], "a disabled element is not clicked from the keyboard");
+    }
+
+    @Test
     void focusListenerHearsKeyboardMoves() {
         UIRoot r = root(new Node().add(card("x"), card("y")));
         List<String> heard = new ArrayList<>();

@@ -816,7 +816,9 @@ public class UIRoot {
                 return true;
             }
         }
-        if ((key == KeyEvent.KEY_ENTER || key == KeyEvent.KEY_SPACE) && focused != null && focused.hasListener(EventType.CLICK)) {
+        // A disabled element ignores Enter and Space as it ignores the mouse.
+        if ((key == KeyEvent.KEY_ENTER || key == KeyEvent.KEY_SPACE) && focused != null && !focused.isDisabled()
+                && focused.hasListener(EventType.CLICK)) {
             focused.emit(EventType.CLICK, new MouseEvent(mouseX, mouseY, MouseEvent.LEFT, 1, 0, 0));
             return true;
         }

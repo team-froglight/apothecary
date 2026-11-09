@@ -887,6 +887,11 @@ public class Node implements Styleable {
     public Node disabled(boolean d) {
         this.disabled = d;
         state("disabled", d);
+        // A disabled element is no longer focusable, so focus on it (or inside it) lets go.
+        if (d && root != null) {
+            Node f = root.focused();
+            if (f != null && f.isDescendantOf(this)) root.setFocus(null);
+        }
         return this;
     }
 
