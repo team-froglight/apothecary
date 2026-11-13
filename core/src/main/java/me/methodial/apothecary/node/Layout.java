@@ -62,6 +62,14 @@ final class Layout {
         float w = fixedW, h = fixedH;
         if (Float.isNaN(w)) w = cs.width().resolve(cbW);
         if (Float.isNaN(h)) h = cs.height().resolve(cbH);
+        // A full-size box (100%) fills what its own margins leave: a button whose frame needs a margin no longer hangs
+        // past the edge, so every full-width element on a page ends at the same x.
+        if (!Float.isNaN(w) && Float.isNaN(fixedW) && cs.width().isPercent() && cs.width().value() >= 100f) {
+            w = Math.max(0, w - cs.margin().resolve(cbW).horizontal());
+        }
+        if (!Float.isNaN(h) && Float.isNaN(fixedH) && cs.height().isPercent() && cs.height().value() >= 100f) {
+            h = Math.max(0, h - cs.margin().resolve(cbW).vertical());
+        }
         if (!Float.isNaN(ar) && ar > 0) {
             if (Float.isNaN(w) && !Float.isNaN(h)) w = h * ar;
             else if (Float.isNaN(h) && !Float.isNaN(w)) h = w / ar;
