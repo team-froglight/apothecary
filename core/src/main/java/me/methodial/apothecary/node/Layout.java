@@ -209,13 +209,22 @@ final class Layout {
             it.minCross = Math.max(pCross, minOf(row ? ccs.get(Props.MIN_HEIGHT) : ccs.get(Props.MIN_WIDTH), row ? cbH : cbW));
             it.maxCross = maxOf(row ? ccs.get(Props.MAX_HEIGHT) : ccs.get(Props.MAX_WIDTH), row ? cbH : cbW);
             it.styleCross = (row ? ccs.height() : ccs.width()).resolve(row ? cbH : cbW);
+            // a 100% cross size fills what the item's own margins leave, as a full-size box does (see size())
+            me.methodial.apothecary.style.Length crossLen = row ? ccs.height() : ccs.width();
+            if (!Float.isNaN(it.styleCross) && crossLen.isPercent() && crossLen.value() >= 100f) {
+                it.styleCross = Math.max(0, it.styleCross - it.crossStartM - it.crossEndM);
+            }
             it.grow = block ? 0 : ccs.get(Props.FLEX_GROW);
             it.shrink = block ? 0 : ccs.get(Props.FLEX_SHRINK);
             Align self = ccs.get(Props.ALIGN_SELF);
             it.align = self == Align.AUTO ? alignItems : self;
 
             float basis = block ? NAN : ccs.get(Props.FLEX_BASIS).resolve(mainSize);
-            if (Float.isNaN(basis)) basis = (row ? ccs.width() : ccs.height()).resolve(row ? cbW : cbH);
+            if (Float.isNaN(basis)) {
+                me.methodial.apothecary.style.Length mainLen = row ? ccs.width() : ccs.height();
+                basis = mainLen.resolve(row ? cbW : cbH);
+                if (!Float.isNaN(basis) && mainLen.isPercent() && mainLen.value() >= 100f) basis = Math.max(0, basis - it.mainStartM - it.mainEndM);
+            }
             if (Float.isNaN(basis)) {
                 float am = Float.isNaN(availMain) ? NAN : Math.max(0, availMain - it.mainStartM - it.mainEndM);
                 float acr = Float.isNaN(availCross) ? NAN : Math.max(0, availCross - it.crossStartM - it.crossEndM);
