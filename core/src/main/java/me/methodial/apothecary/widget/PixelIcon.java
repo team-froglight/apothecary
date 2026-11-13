@@ -115,7 +115,8 @@ public class PixelIcon extends Node {
         if (art == null || color.isTransparent()) return;
         Affine dev = c.deviceMatrix();
         float ps = dev.approxScale();
-        int cell = Math.max(1, (int) Math.floor(Math.min(box.width(), box.height()) * ps / art.frame() + 1e-3f));
+        // Never finer than one GUI pixel a cell, so icons beside each other keep one stroke weight.
+        int cell = Math.max(Math.max(1, Math.round(ps)), (int) Math.floor(Math.min(box.width(), box.height()) * ps / art.frame() + 1e-3f));
         int[] runs = RASTERS.computeIfAbsent(name + "@" + cell, key -> raster(art, cell));
         int x0 = Math.round(dev.mapX(box.x(), box.y()) + (box.width() * ps - cell * art.cols()) / 2f);
         int y0 = Math.round(dev.mapY(box.x(), box.y()) + (box.height() * ps - cell * art.rows()) / 2f);

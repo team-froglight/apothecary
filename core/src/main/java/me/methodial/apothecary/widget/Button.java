@@ -30,6 +30,8 @@ public class Button extends Node {
     }
 
     public static Button icon(String iconName, String tooltip) {
+        // One look per screen: when the pixel set has the icon, the button uses it.
+        if (PixelIcon.has(iconName)) return pixel(iconName, tooltip);
         Button b = new Button("");
         b.label.style(s -> s.hidden());
         b.icon(iconName);
@@ -63,6 +65,7 @@ public class Button extends Node {
     public Button text(String t) { label.text(t); return this; }
 
     public Button icon(String name) {
+        if (icon == null && PixelIcon.has(name)) return pixelIcon(name);
         if (icon == null) {
             icon = new Icon(name);
             icon.cls("button-icon");

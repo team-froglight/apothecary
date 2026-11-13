@@ -73,8 +73,18 @@ public final class ComputedStyle {
                 get(Props.BORDER_BOTTOM_WIDTH), get(Props.BORDER_LEFT_WIDTH));
     }
 
+    /**
+     * The padding, and on a vertically scrolling box at least room for its scrollbar on the right (a stable gutter,
+     * as CSS's {@code scrollbar-gutter: stable}): the bar is drawn inside the padding, so without it the bar lay over
+     * the content's right edge.
+     */
     public me.methodial.apothecary.geom.Edges padding(float base) {
-        return new me.methodial.apothecary.geom.Edges(get(Props.PADDING_TOP).resolveOr(base, 0), get(Props.PADDING_RIGHT).resolveOr(base, 0),
+        float right = get(Props.PADDING_RIGHT).resolveOr(base, 0);
+        if (get(Props.OVERFLOW_Y) == Overflow.SCROLL) {
+            float bar = get(Props.SCROLLBAR_WIDTH);
+            if (bar > 0) right = Math.max(right, bar + 4);
+        }
+        return new me.methodial.apothecary.geom.Edges(get(Props.PADDING_TOP).resolveOr(base, 0), right,
                 get(Props.PADDING_BOTTOM).resolveOr(base, 0), get(Props.PADDING_LEFT).resolveOr(base, 0));
     }
 
