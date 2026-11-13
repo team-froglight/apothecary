@@ -1,0 +1,31 @@
+// jec_client_eval snippet: dumps the open Apothecary screen's laid-out boxes (GUI px, root space) to
+// <gameDir>/layout-grid/boxes.tsv and grabs the frame to <gameDir>/screenshots/layout-grid.png.
+// Columns: id, parentId, depth, x0, y0, x1, y1, scrollsY, type.classes, text
+var mc = ctx.client();
+if (!(mc.screen instanceof me.methodial.apothecary.mc.screen.UIScreen ui)) return "not an Apothecary screen: " + mc.screen;
+var root = ui.ui().content();
+var out = new StringBuilder();
+var stack = new java.util.ArrayDeque<Object[]>();
+stack.push(new Object[]{root, -1, 0});
+int[] next = {0};
+while (!stack.isEmpty()) {
+    Object[] e = stack.pop();
+    var n = (me.methodial.apothecary.node.Node) e[0];
+    if (!n.isRendered()) continue;
+    int id = next[0]++;
+    var m = n.globalMatrix();
+    float x0 = m.mapX(0, 0), y0 = m.mapY(0, 0), x1 = m.mapX(n.width(), n.height()), y1 = m.mapY(n.width(), n.height());
+    String text = n instanceof me.methodial.apothecary.widget.Text t ? t.text().replace('\t', ' ').replace('\n', ' ') : "";
+    out.append(id).append('\t').append(e[1]).append('\t').append(e[2]).append('\t')
+       .append(x0).append('\t').append(y0).append('\t').append(x1).append('\t').append(y1).append('\t')
+       .append(n.scrollsY()).append('\t').append(n.typeName()).append(n.classes().isEmpty() ? "" : "." + String.join(".", n.classes()))
+       .append('\t').append(text).append('\n');
+    var kids = n.children();
+    for (int i = kids.size() - 1; i >= 0; i--) stack.push(new Object[]{kids.get(i), id, (int) e[2] + 1});
+}
+var dir = new java.io.File(mc.gameDirectory, "layout-grid");
+dir.mkdirs();
+java.nio.file.Files.writeString(new java.io.File(dir, "boxes.tsv").toPath(),
+    "#scale\t" + mc.getWindow().getGuiScale() + "\t" + mc.getWindow().getGuiScaledWidth() + "\t" + mc.getWindow().getGuiScaledHeight() + "\n" + out);
+net.minecraft.client.Screenshot.grab(mc.gameDirectory, "layout-grid.png", mc.getMainRenderTarget(), c -> {});
+return next[0] + " boxes from " + mc.screen.getClass().getSimpleName();
