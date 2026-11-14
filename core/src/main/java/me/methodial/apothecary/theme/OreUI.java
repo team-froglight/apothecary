@@ -44,6 +44,8 @@ public final class OreUI {
 
     /** The depth band under a raised face (buttons, knobs), in units: the kit's 8 px at 4 px a unit. */
     public static final float DEPTH = 2;
+    /** One square cell of a switch: its knob, and half its track. */
+    public static final float SWITCH_CELL = 12;
     /** A button's face, its edge lines included: the kit's 89 px. */
     public static final float BUTTON_HEIGHT = 22;
     /** Text fields, frame included: the kit's Textbox, 126 px. */
@@ -461,18 +463,19 @@ public final class OreUI {
                 .refine(sel -> sel.checked().focusVisible(), v -> v.partStyle("checkbox-box", s -> s.shadow(diamondShadows(DIAMOND_ON, true))))
                 .refine(sel -> sel.disabled(), d -> d.style(s -> s.opacity(1)).partStyle("checkbox-box", diamond(DIAMOND_DISABLED, false))));
 
-        // Switch: a framed track (green when on, gray when off) and a General button knob with its depth.
+        // Switch, as the kit draws it: a track of exactly two square cells (green when on, the recessed grey when off)
+        // and a square General knob with its depth band, moving exactly one cell.
         sheet.on("switch", r -> r
-                .partStyle("switch-track", s -> s.size(25, 12).radius(0).pad(0).bg(Colors.hex("#8c8d90"))
+                .partStyle("switch-track", s -> s.size(SWITCH_CELL * 2, SWITCH_CELL).radius(0).pad(0).bg(Colors.hex("#8c8d90"))
                         .border(1, Colors.hex("#a3a4a6")).outline(1, OUTLINE, 0))
-                .partStyle("switch-knob", s -> s.size(12, 11).mt(-1).radius(0).apply(face(GENERAL))
+                .partStyle("switch-knob", s -> s.size(SWITCH_CELL).mt(0).radius(0).apply(face(GENERAL))
                         .transition(Tr.transform(0.12f, OUT), Tr.colors(0.08f)))
                 .when(HOVER, h -> h.partStyle("switch-knob", s -> s.bg(GENERAL.hover())))
-                .when(ACTIVE, a -> a.partStyle("switch-knob", s -> s.w(12)))
+                .when(ACTIVE, a -> a.partStyle("switch-knob", s -> s.w(SWITCH_CELL)))
                 .when(CHECKED, c -> c
                         .partStyle("switch-track", s -> s.bg(COLORED.bg()).borderColor(COLORED.stroke()))
-                        .partStyle("switch-knob", s -> s.translateX(11)))
-                .refine(sel -> sel.checked().active(), c -> c.partStyle("switch-knob", s -> s.translateX(11)))
+                        .partStyle("switch-knob", s -> s.translateX(SWITCH_CELL)))
+                .refine(sel -> sel.checked().active(), c -> c.partStyle("switch-knob", s -> s.translateX(SWITCH_CELL)))
                 .when(FOCUS_VISIBLE, f -> f.partStyle("switch-track", s -> s.outline(1, SELECTION_FRAME, 1))));
 
         sheet.on("radio", r -> r
@@ -496,7 +499,8 @@ public final class OreUI {
                 .partStyle("slider-fill", s -> s.radius(0).apply(flatFace(COLORED)).noShadow()
                         .shadow(t -> List.of(Shadow.inset(-1, 0, 0, COLORED.stroke().resolve(t)), Shadow.inset(0, -1, 0, COLORED.stroke().resolve(t)),
                                 Shadow.inset(0, 1, 0, COLORED.secondary().resolve(t)))))
-                .partStyle("slider-thumb", s -> s.top(1).size(10, 11).radius(0).apply(face(GENERAL)).noShrink())
+                // the handle a square, centred on the track
+                .partStyle("slider-thumb", s -> s.top(2).size(12).radius(0).apply(face(GENERAL)).noShrink())
                 .partCls("slider-value", v -> v.style(s -> s.radius(0).bg(TOOLTIP_BG).border(1, OUTLINE).fontSize(9).fg(Colors.WHITE)))
                 // Hover and drag re-apply the face: the default theme rings the thumb, which would replace its bevel.
                 .when(HOVER, h -> h.partStyle("slider-thumb", s -> s.untransformed().apply(face(GENERAL)).bg(GENERAL.hover())))
