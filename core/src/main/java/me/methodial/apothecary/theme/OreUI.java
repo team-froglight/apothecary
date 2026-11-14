@@ -428,7 +428,8 @@ public final class OreUI {
                     .active(s -> s.untransformed().noShadow()));
             r.variantStyle("sm", s -> s.pad(3, 6));
             r.variantStyle("lg", s -> s.pad(8, 14).fontSize(13.5f));
-            r.variantStyle("icon-only", s -> s.pad(4));
+            // icon-only buttons are squares, a button (and a field) tall
+            r.variantStyle("icon-only", s -> s.pad(0).size(FIELD_HEIGHT).justifyCenter().itemsCenter());
             r.partCls("button-icon", p -> p.style(s -> s.fontSize(9).stroke(2.4f)));
         });
     }
