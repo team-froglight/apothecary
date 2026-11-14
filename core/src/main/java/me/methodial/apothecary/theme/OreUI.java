@@ -486,7 +486,8 @@ public final class OreUI {
 
         // Slider: a green face up to the handle, a darkened General face after it, a General button handle.
         sheet.on("slider", r -> r
-                .style(s -> s.h(16))
+                // no side padding: the thumb stays inside the track, which spans the slider edge to edge
+                .style(s -> s.h(16).padX(0))
                 .partStyle("slider-track", s -> s.h(6).radius(0).bg(Colors.hex("#8c8d90")).borderW(0)
                         .shadow(t -> List.of(new Shadow(0, 0, 0, 1, OUTLINE.resolve(t), false))))
                 .partStyle("slider-fill", s -> s.radius(0).apply(flatFace(COLORED)).noShadow()

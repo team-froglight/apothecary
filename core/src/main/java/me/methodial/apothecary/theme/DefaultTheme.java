@@ -181,7 +181,7 @@ public final class DefaultTheme {
 
     private static void sliders(Sheet sheet) {
         sheet.on("slider", r -> r
-                .style(s -> s.h(12).minW(60).flex().itemsCenter().padX(5).pointer())
+                .style(s -> s.h(12).minW(60).flex().itemsCenter().padX(0).pointer())
                 .partStyle("slider-track", s -> s.grow().h(3).radius(2).bg(SURFACE_3))
                 .partStyle("slider-fill", s -> s.fullH().radius(2).gradient(90, ACCENT, ACCENT_2))
                 .partStyle("slider-thumb", s -> s.abs().top(1).size(10).round().bg(Color.WHITE)

@@ -74,7 +74,9 @@ public class Slider extends ValueWidget<Float> {
 
     private void setFromLocal(float lx) {
         Rect c = contentBox();
-        float f = c.width() <= 0 ? 0 : (lx - c.x()) / c.width();
+        // the thumb travels inside the track: its centre runs from half a thumb in to half a thumb from the end
+        float tw = thumb.width(), travel = c.width() - tw;
+        float f = travel <= 0 ? 0 : (lx - c.x() - tw / 2) / travel;
         Float old = value;
         value(min + Math.max(0, Math.min(1, f)) * (max - min));
         if (!old.equals(value)) sound("slide");
@@ -89,18 +91,23 @@ public class Slider extends ValueWidget<Float> {
 
     @Override
     protected void valueChanged(Float old, Float now) {
-        fill.style().set(Props.WIDTH, Length.percent(fraction() * 100));
         placeThumb();
         if (bubble != null) bubble.text(format.apply(now));
     }
 
-    /** Centers the thumb on the value's point along the track (content box). */
+    /**
+     * Puts the thumb on the value's point, kept inside the track (no padding needed for it to reach the ends, so the
+     * track spans the slider and lines up with whatever is above it), and the fill up to the thumb's centre.
+     */
     private void placeThumb() {
         if (computed() == null) return;
         Rect c = contentBox();
-        float left = c.x() + fraction() * c.width() - thumb.width() / 2 - borderEdges().left();
+        float tw = thumb.width(), travel = Math.max(0, c.width() - tw);
+        float left = c.x() + fraction() * travel - borderEdges().left();
         Length l = Length.px(Math.round(left * 4) / 4f);
         if (!l.equals(thumb.style().get(Props.LEFT))) thumb.style().set(Props.LEFT, l);
+        Length fw = Length.px(Math.round((tw / 2 + fraction() * travel) * 4) / 4f);
+        if (!fw.equals(fill.style().get(Props.WIDTH))) fill.style().set(Props.WIDTH, fw);
     }
 
     @Override
