@@ -98,7 +98,12 @@ public class UIScreen extends Screen {
     /** Physical pixels per UI unit currently in use. */
     public float currentScale() {
         var w = net.minecraft.client.Minecraft.getInstance().getWindow();
-        if (fixedScale < 0) return (float) w.getGuiScale();
+        // Following the GUI scale, but never so large the window can't hold the design size: then the largest whole
+        // scale that does (a small window at GUI scale 2 gets 1 rather than a page cut off or scrolling).
+        if (fixedScale < 0) {
+            float fit = (float) Math.floor(Math.min(w.getWidth() / designWidth, w.getHeight() / designHeight));
+            return Math.max(1, Math.min((float) w.getGuiScale(), fit));
+        }
         if (fixedScale > 0) return fixedScale;
         float s = Math.min(w.getWidth() / designWidth, w.getHeight() / designHeight);
         return Math.max(1, (float) Math.floor(s * 2) / 2f);
