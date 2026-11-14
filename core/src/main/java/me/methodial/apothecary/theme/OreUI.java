@@ -466,14 +466,15 @@ public final class OreUI {
         // Switch, as the kit draws it: a track of exactly two square cells (green when on, the recessed grey when off)
         // and a square General knob with its depth band, moving exactly one cell.
         sheet.on("switch", r -> r
+                // the frame is drawn outside the track (an outline), so its box is exactly the two cells the knob moves in
                 .partStyle("switch-track", s -> s.size(SWITCH_CELL * 2, SWITCH_CELL).radius(0).pad(0).bg(Colors.hex("#8c8d90"))
-                        .border(1, Colors.hex("#a3a4a6")).outline(1, OUTLINE, 0))
+                        .borderW(0).outline(1, OUTLINE, 0))
                 .partStyle("switch-knob", s -> s.size(SWITCH_CELL).mt(0).radius(0).apply(face(GENERAL))
                         .transition(Tr.transform(0.12f, OUT), Tr.colors(0.08f)))
                 .when(HOVER, h -> h.partStyle("switch-knob", s -> s.bg(GENERAL.hover())))
                 .when(ACTIVE, a -> a.partStyle("switch-knob", s -> s.w(SWITCH_CELL)))
                 .when(CHECKED, c -> c
-                        .partStyle("switch-track", s -> s.bg(COLORED.bg()).borderColor(COLORED.stroke()))
+                        .partStyle("switch-track", s -> s.bg(COLORED.bg()))
                         .partStyle("switch-knob", s -> s.translateX(SWITCH_CELL)))
                 .refine(sel -> sel.checked().active(), c -> c.partStyle("switch-knob", s -> s.translateX(SWITCH_CELL)))
                 .when(FOCUS_VISIBLE, f -> f.partStyle("switch-track", s -> s.outline(1, SELECTION_FRAME, 1))));
