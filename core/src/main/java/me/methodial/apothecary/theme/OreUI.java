@@ -47,7 +47,8 @@ public final class OreUI {
     /** A button's face, its edge lines included: the kit's 89 px. */
     public static final float BUTTON_HEIGHT = 22;
     /** Text fields, frame included: the kit's Textbox, 126 px. */
-    public static final float FIELD_HEIGHT = 31;
+    /** Text fields and dropdowns: a button's height (22), so a field and the button beside it line up. */
+    public static final float FIELD_HEIGHT = 22;
     /** The checkbox and radio diamond: a square this size turned 45 degrees, 15 across. */
     public static final float DIAMOND = 10.5f;
 
@@ -384,9 +385,10 @@ public final class OreUI {
                 .active(s -> s.bg(p.pressed()).translateY(DEPTH).shadow(faceShadows(p, false, true, false, true)))
                 // The face draws the white focus frame; drop the default theme's accent outline.
                 .focusVisible(s -> s.shadow(faceShadows(p, true, false, true, true)).outline(0, SELECTION_FRAME))
-                // Disabled: as the kit, the hover face without depth, its label at half strength.
+                // Disabled: the hover face, its label at half strength, and the depth band kept: an inactive button is
+                // exactly as tall as an active one beside it (without the band it read 2 px shorter).
                 .disabled(s -> s.bg(p.hover()).fg(alpha(p.text(), 0.5f)).opacity(1).untransformed()
-                        .shadow(faceShadows(p, false, false, false, true)));
+                        .shadow(faceShadows(p, true, false, false, true)));
     }
 
     /** One palette's states on the rules of a list row (or variant): flat, see {@link #row}. */

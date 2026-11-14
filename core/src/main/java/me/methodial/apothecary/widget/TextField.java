@@ -58,6 +58,17 @@ public class TextField extends ValueWidget<String> {
     }
 
     public TextField placeholder(String p) { this.placeholder = p == null ? "" : p; return this; }
+
+    /** A pixel icon ({@link PixelIcon}) at the field's start, in the placeholder's colour (a search field's lens). */
+    private String icon;
+    private static final float ICON = PixelIcon.KIT_FRAME, ICON_GAP = 5;
+
+    public TextField icon(String pixelIcon) {
+        this.icon = pixelIcon;
+        // the text starts after the icon: the icon sits in the left padding
+        style(s -> s.pl(6 + ICON + ICON_GAP));
+        return this;
+    }
     public TextField maxLength(int n) { this.maxLength = n; return this; }
     /** Rejects edits whose resulting text doesn't pass (e.g. {@code s -> s.matches("\\d*")}). */
     public TextField filter(Predicate<String> f) { this.filter = f; return this; }
@@ -203,6 +214,10 @@ public class TextField extends ValueWidget<String> {
         float lh = m.lineHeight(font);
         float y = r.y() + (r.height() - lh) / 2;
 
+        if (icon != null) {
+            PixelIcon.paint(c, icon, new Rect(r.x() - ICON - ICON_GAP, r.y() + (r.height() - ICON) / 2, ICON, ICON),
+                    cs.token(Tokens.PLACEHOLDER));
+        }
         c.pushClip(new Rect(r.x() - 1, r.y() - 2, r.width() + 2, r.height() + 4));
         float x0 = r.x() - scroll;
         if (hasSelection() && isFocused()) {
