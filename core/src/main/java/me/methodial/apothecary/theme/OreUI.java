@@ -476,11 +476,14 @@ public final class OreUI {
                 .partStyle("switch-knob", s -> s.size(SWITCH_CELL).mt(-DEPTH).radius(0).apply(face(GENERAL))
                         .transition(Tr.transform(0.12f, OUT), Tr.colors(0.08f)))
                 .when(HOVER, h -> h.partStyle("switch-knob", s -> s.bg(GENERAL.hover())))
+                // the base theme widens a pressed knob and whitens a checked one: the kit's knob is the same in every state
+                .when(ACTIVE, a -> a.partStyle("switch-knob", s -> s.size(SWITCH_CELL)))
                 .when(CHECKED, c -> c
                         .partStyle("switch-track", s -> s.bg(COLORED.bg()).shadow(t -> List.of(new Shadow(0, 0, 0, 1, OUTLINE.resolve(t), false),
                                 Shadow.inset(0, 1, 0, COLORED.stroke().resolve(t)), Shadow.inset(1, 0, 0, COLORED.stroke().resolve(t)),
                                 Shadow.inset(0, -1, 0, COLORED.stroke().resolve(t)), Shadow.inset(-1, 0, 0, COLORED.stroke().resolve(t)))))
-                        .partStyle("switch-knob", s -> s.translateX(SWITCH_CELL)))
+                        .partStyle("switch-knob", s -> s.translateX(SWITCH_CELL).bg(GENERAL.bg())))
+                .refine(sel -> sel.checked().hover(), c -> c.partStyle("switch-knob", s -> s.bg(GENERAL.hover())))
                 .refine(sel -> sel.checked().active(), c -> c.partStyle("switch-knob", s -> s.translateX(SWITCH_CELL)))
                 .when(FOCUS_VISIBLE, f -> f.partStyle("switch-track", s -> s.outline(1, SELECTION_FRAME, 1))));
 
