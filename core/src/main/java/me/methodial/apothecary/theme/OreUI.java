@@ -498,6 +498,11 @@ public final class OreUI {
                         .partStyle("switch-knob", s -> s.translateX(SWITCH_CELL).bg(GENERAL.bg())))
                 .refine(sel -> sel.checked().hover(), c -> c.partStyle("switch-knob", s -> s.bg(GENERAL.hover())))
                 .refine(sel -> sel.checked().active(), c -> c.partStyle("switch-knob", s -> s.translateX(SWITCH_CELL)))
+                // disabled: solid, never see-through (the base theme fades it): a grey track on or off, the kit's
+                // disabled knob
+                .refine(sel -> sel.disabled(), d -> d.style(s -> s.opacity(1))
+                        .partStyle("switch-track", s -> s.bg(Colors.hex("#8c8d90")).shadow(t -> List.of(new Shadow(0, 0, 0, 1, OUTLINE.resolve(t), false))))
+                        .partStyle("switch-knob", s -> s.apply(face(DISABLED_FACE))))
                 .when(FOCUS_VISIBLE, f -> f.partStyle("switch-track", s -> s.outline(1, SELECTION_FRAME, 1))));
 
         sheet.on("radio", r -> r
@@ -528,6 +533,11 @@ public final class OreUI {
                 // Hover and drag re-apply the face: the default theme rings the thumb, which would replace its bevel.
                 .when(HOVER, h -> h.partStyle("slider-thumb", s -> s.untransformed().apply(face(GENERAL)).bg(GENERAL.hover())))
                 .when(DRAGGING, d -> d.partStyle("slider-thumb", s -> s.untransformed().apply(face(GENERAL)).bg(GENERAL.hover())))
+                // disabled: solid (the base theme fades it, and the fill showed through the handle): no green, the
+                // kit's disabled handle
+                .refine(sel -> sel.disabled(), d -> d.style(s -> s.opacity(1))
+                        .partStyle("slider-fill", s -> s.bg(Colors.hex("#8c8d90")).noShadow())
+                        .partStyle("slider-thumb", s -> s.untransformed().apply(face(DISABLED_FACE))))
                 .when(FOCUS_VISIBLE, f -> f.partStyle("slider-thumb", s -> s.shadow(faceShadows(GENERAL, true, false, true, true))
                         .outline(0, SELECTION_FRAME))));
 
