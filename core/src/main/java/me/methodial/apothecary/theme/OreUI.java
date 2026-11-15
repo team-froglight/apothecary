@@ -467,15 +467,17 @@ public final class OreUI {
         // the recessed dark grey when off) and a raised General knob, a button in small: its face stands a depth band
         // above the track, its band and frame sit on the track's bottom, and it moves exactly one cell.
         sheet.on("switch", r -> r
-                // the frame is drawn outside the track (an outline); the margin above leaves room for the raised knob
+                // the margin above leaves room for the raised knob
                 .partStyle("switch-track", s -> s.size(SWITCH_CELL * 2, SWITCH_CELL).mt(DEPTH + 1).radius(0).pad(0)
-                        .bg(Colors.hex("#58585a")).borderW(0).outline(1, OUTLINE, 0)
-                        .shadow(t -> List.of(Shadow.inset(0, 1, 0, Color.hex("#3d3d3f")), Shadow.inset(1, 0, 0, Color.hex("#3d3d3f")))))
+                        .bg(Colors.hex("#8c8d90")).borderW(0)
+                        // the off track is the slider's empty track, the same grey; the frame is a shadow, drawn under
+                        // the knob (an outline would be drawn over it)
+                        .shadow(t -> List.of(new Shadow(0, 0, 0, 1, OUTLINE.resolve(t), false))))
                 .partStyle("switch-knob", s -> s.size(SWITCH_CELL).mt(-DEPTH).radius(0).apply(face(GENERAL))
                         .transition(Tr.transform(0.12f, OUT), Tr.colors(0.08f)))
                 .when(HOVER, h -> h.partStyle("switch-knob", s -> s.bg(GENERAL.hover())))
                 .when(CHECKED, c -> c
-                        .partStyle("switch-track", s -> s.bg(COLORED.bg()).shadow(t -> List.of(
+                        .partStyle("switch-track", s -> s.bg(COLORED.bg()).shadow(t -> List.of(new Shadow(0, 0, 0, 1, OUTLINE.resolve(t), false),
                                 Shadow.inset(0, 1, 0, COLORED.stroke().resolve(t)), Shadow.inset(1, 0, 0, COLORED.stroke().resolve(t)),
                                 Shadow.inset(0, -1, 0, COLORED.stroke().resolve(t)), Shadow.inset(-1, 0, 0, COLORED.stroke().resolve(t)))))
                         .partStyle("switch-knob", s -> s.translateX(SWITCH_CELL)))
@@ -503,8 +505,8 @@ public final class OreUI {
                 .partStyle("slider-fill", s -> s.radius(0).apply(flatFace(COLORED)).noShadow()
                         .shadow(t -> List.of(Shadow.inset(-1, 0, 0, COLORED.stroke().resolve(t)), Shadow.inset(0, -1, 0, COLORED.stroke().resolve(t)),
                                 Shadow.inset(0, 1, 0, COLORED.secondary().resolve(t)))))
-                // the handle a square, centred on the track
-                .partStyle("slider-thumb", s -> s.top(2).size(12).radius(0).apply(face(GENERAL)).noShrink())
+                // the handle a square; face and depth band together centred on the track (16 tall: track at 5, handle 1..15)
+                .partStyle("slider-thumb", s -> s.top(1).size(12).radius(0).apply(face(GENERAL)).noShrink())
                 .partCls("slider-value", v -> v.style(s -> s.radius(0).bg(TOOLTIP_BG).border(1, OUTLINE).fontSize(9).fg(Colors.WHITE)))
                 // Hover and drag re-apply the face: the default theme rings the thumb, which would replace its bevel.
                 .when(HOVER, h -> h.partStyle("slider-thumb", s -> s.untransformed().apply(face(GENERAL)).bg(GENERAL.hover())))
