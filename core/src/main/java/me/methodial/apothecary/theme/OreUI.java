@@ -44,6 +44,18 @@ public final class OreUI {
 
     /** The depth band under a raised face (buttons, knobs), in units: the kit's 8 px at 4 px a unit. */
     public static final float DEPTH = 2;
+    /**
+     * The face of a square button that stands beside a field or dropdown (a back button by a title, a lock by a
+     * dropdown): its frame (1 each side) and depth band, drawn outside the face, fit in the field's height, so the two
+     * read as one size. See {@link #besideField()}.
+     */
+    public static float fieldButton() { return FIELD_HEIGHT - 2 - DEPTH; }
+
+    /** A square button a field's size, frame and depth band included: its face, and margins that hold them. */
+    public static Consumer<Style> besideField() {
+        return s -> s.size(fieldButton()).pad(0).m(1, 1, 1 + DEPTH, 1).justifyCenter().itemsCenter().noShrink();
+    }
+
     /** One square cell of a switch: its knob, and half its track. */
     public static final float SWITCH_CELL = 12;
     /** A button's face, its edge lines included: the kit's 89 px. */
