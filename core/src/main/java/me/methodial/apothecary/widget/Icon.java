@@ -60,6 +60,11 @@ public class Icon extends Node {
 
     @Override
     protected void paintContent(Canvas c, Rect r) {
+        // one icon style per screen: a picture the pixel set has is drawn from it, whichever widget asked
+        if (PixelIcon.has(name())) {
+            PixelIcon.paint(c, name(), r, computed().color());
+            return;
+        }
         List<Shape> shapes = ICONS.get(name());
         if (shapes == null) return;
         ComputedStyle cs = computed();

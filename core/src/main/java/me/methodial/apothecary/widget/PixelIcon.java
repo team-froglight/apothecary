@@ -49,7 +49,7 @@ public class PixelIcon extends Node {
         // match them (one-cell strokes, at most 7x7 in its 8-cell frame, its shadow).
         for (String name : List.of("check", "arrow-left", "arrow-right", "chevron-left", "chevron-right", "chevron-up",
                 "chevron-down", "calendar", "close", "plus", "minus", "search", "coin", "grid", "category", "edit", "trash",
-                "lock", "star", "info", "warning", "menu")) {
+                "lock", "star", "info", "warning", "menu", "crown")) {
             register(name, KIT_FRAME, true, PixelIcon.class.getResource("/assets/apothecary/icons/kit/" + name + ".svg"));
         }
     }
@@ -94,7 +94,13 @@ public class PixelIcon extends Node {
 
     public static Set<String> names() { return Collections.unmodifiableSet(ICONS.keySet()); }
 
-    public static boolean has(String name) { return ICONS.containsKey(name); }
+    /** Other names the vector set uses for the same pictures. */
+    private static final Map<String, String> ALIASES = Map.of("x", "close", "cross", "close", "back", "chevron-left");
+
+    /** {@code name} as the pixel set calls it. */
+    public static String resolve(String name) { return name == null ? null : ALIASES.getOrDefault(name, name); }
+
+    public static boolean has(String name) { return name != null && ICONS.containsKey(resolve(name)); }
 
     @Override public boolean isLeaf() { return true; }
 
@@ -111,6 +117,7 @@ public class PixelIcon extends Node {
 
     /** Paints icon {@code name} centered in {@code box} at the largest whole-pixel cell size that fits. */
     public static void paint(Canvas c, String name, Rect box, Color color) {
+        name = resolve(name);
         Art art = ICONS.get(name);
         if (art == null || color.isTransparent()) return;
         Affine dev = c.deviceMatrix();

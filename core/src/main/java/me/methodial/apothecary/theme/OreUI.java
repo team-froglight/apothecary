@@ -468,7 +468,8 @@ public final class OreUI {
         // above the track, its band and frame sit on the track's bottom, and it moves exactly one cell.
         sheet.on("switch", r -> r
                 // the margin above leaves room for the raised knob
-                .partStyle("switch-track", s -> s.size(SWITCH_CELL * 2, SWITCH_CELL).mt(DEPTH + 1).radius(0).pad(0)
+                // its frame (drawn outside it) inside the switch's box, as a field's is: the margins are the frame
+                .partStyle("switch-track", s -> s.size(SWITCH_CELL * 2, SWITCH_CELL).m(DEPTH + 1, 1, 1, 1).radius(0).pad(0)
                         .bg(Colors.hex("#8c8d90")).borderW(0)
                         // the off track is the slider's empty track, the same grey; the frame is a shadow, drawn under
                         // the knob (an outline would be drawn over it)
@@ -502,7 +503,8 @@ public final class OreUI {
         // Slider: a green face up to the handle, a darkened General face after it, a General button handle.
         sheet.on("slider", r -> r
                 // no side padding: the thumb stays inside the track, which spans the slider edge to edge
-                .style(s -> s.h(16).padX(0))
+                // the track's frame (drawn outside it) inside the slider's box, so a slider ends where a field does
+                .style(s -> s.h(16).padX(1))
                 .partStyle("slider-track", s -> s.h(6).radius(0).bg(Colors.hex("#8c8d90")).borderW(0)
                         .shadow(t -> List.of(new Shadow(0, 0, 0, 1, OUTLINE.resolve(t), false))))
                 .partStyle("slider-fill", s -> s.radius(0).apply(flatFace(COLORED)).noShadow()
