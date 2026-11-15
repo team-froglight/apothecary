@@ -463,18 +463,21 @@ public final class OreUI {
                 .refine(sel -> sel.checked().focusVisible(), v -> v.partStyle("checkbox-box", s -> s.shadow(diamondShadows(DIAMOND_ON, true))))
                 .refine(sel -> sel.disabled(), d -> d.style(s -> s.opacity(1)).partStyle("checkbox-box", diamond(DIAMOND_DISABLED, false))));
 
-        // Switch, as the kit draws it: a track of exactly two square cells (green when on, the recessed grey when off)
-        // and a square General knob with its depth band, moving exactly one cell.
+        // Switch, as the kit draws it: a framed track of two square cells (green with its lighter edge line when on,
+        // the recessed dark grey when off) and a raised General knob, a button in small: its face stands a depth band
+        // above the track, its band and frame sit on the track's bottom, and it moves exactly one cell.
         sheet.on("switch", r -> r
-                // the frame is drawn outside the track (an outline), so its box is exactly the two cells the knob moves in
-                .partStyle("switch-track", s -> s.size(SWITCH_CELL * 2, SWITCH_CELL).radius(0).pad(0).bg(Colors.hex("#8c8d90"))
-                        .borderW(0).outline(1, OUTLINE, 0))
-                .partStyle("switch-knob", s -> s.size(SWITCH_CELL).mt(0).radius(0).apply(face(GENERAL))
+                // the frame is drawn outside the track (an outline); the margin above leaves room for the raised knob
+                .partStyle("switch-track", s -> s.size(SWITCH_CELL * 2, SWITCH_CELL).mt(DEPTH + 1).radius(0).pad(0)
+                        .bg(Colors.hex("#58585a")).borderW(0).outline(1, OUTLINE, 0)
+                        .shadow(t -> List.of(Shadow.inset(0, 1, 0, Color.hex("#3d3d3f")), Shadow.inset(1, 0, 0, Color.hex("#3d3d3f")))))
+                .partStyle("switch-knob", s -> s.size(SWITCH_CELL).mt(-DEPTH).radius(0).apply(face(GENERAL))
                         .transition(Tr.transform(0.12f, OUT), Tr.colors(0.08f)))
                 .when(HOVER, h -> h.partStyle("switch-knob", s -> s.bg(GENERAL.hover())))
-                .when(ACTIVE, a -> a.partStyle("switch-knob", s -> s.w(SWITCH_CELL)))
                 .when(CHECKED, c -> c
-                        .partStyle("switch-track", s -> s.bg(COLORED.bg()))
+                        .partStyle("switch-track", s -> s.bg(COLORED.bg()).shadow(t -> List.of(
+                                Shadow.inset(0, 1, 0, COLORED.stroke().resolve(t)), Shadow.inset(1, 0, 0, COLORED.stroke().resolve(t)),
+                                Shadow.inset(0, -1, 0, COLORED.stroke().resolve(t)), Shadow.inset(-1, 0, 0, COLORED.stroke().resolve(t)))))
                         .partStyle("switch-knob", s -> s.translateX(SWITCH_CELL)))
                 .refine(sel -> sel.checked().active(), c -> c.partStyle("switch-knob", s -> s.translateX(SWITCH_CELL)))
                 .when(FOCUS_VISIBLE, f -> f.partStyle("switch-track", s -> s.outline(1, SELECTION_FRAME, 1))));
