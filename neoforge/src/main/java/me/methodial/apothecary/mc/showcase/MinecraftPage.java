@@ -75,15 +75,30 @@ final class MinecraftPage {
                 new McText(Component.literal("Alex has made the advancement ").append(Component.literal("[Local Brewery]").withStyle(ChatFormatting.GREEN))),
                 new McText(Component.translatable("death.attack.drown", Component.literal("Herobrine")).withStyle(ChatFormatting.GRAY)));
 
+        // ---- a whole little world
+        me.methodial.kraz.scene.Scene island = me.methodial.kraz.demo.DemoScenes.island();
+        Node world = new Node().style(st -> st.row().gap(6)).add(
+                new me.methodial.apothecary.mc.node.SceneView(island).interactive().style(st -> st.size(150, 110)),
+                new me.methodial.apothecary.mc.node.SceneView(shadedIsland()).shaded().interactive().style(st -> st.size(150, 110)));
+
         return page().add(
                 section("Items", "ItemView renders stacks with models, glint, counts and durability; hover for vanilla tooltips.",
                         new Node().cls("cards-wide").add(
                                 card("Inventory", "item-slot is styled by the theme sheet; the tooltip is the item's own", inv),
                                 card("Transforms", "Items follow style transforms and keyframe animations", scaled))),
                 new Node().cls("cards-wide").add(
-                        card("Entities", "EntityView: the inventory paper-doll, looking at your cursor", doll),
+                        card("Scenes", "SceneView: an animated Kraz scene, plain and through the shader pipeline. Drag to orbit, scroll to zoom", world),
+                        card("Entities", "EntityView: the paper-doll, looking at your cursor", doll),
                         card("Sprites & textures", "GUI atlas sprites (nine-sliced per .mcmeta) and whole textures", sprites),
                         card("Chat components", "Translation, formatting and fonts from vanilla", chat)));
+    }
+
+    /** The demo island set up for the shader pipeline: perspective lens, no baked face shading. */
+    private static me.methodial.kraz.scene.Scene shadedIsland() {
+        me.methodial.kraz.scene.Scene scene = me.methodial.kraz.demo.DemoScenes.island();
+        scene.setEnvironment(scene.environment().withShade(false));
+        scene.camera().setOrthographic(false).setPitch(18);
+        return scene;
     }
 
     private static Image sprite(String path, int iw, int ih, float w, float h) {

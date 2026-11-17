@@ -49,6 +49,18 @@ neoForge {
 }
 
 repositories {
+    // Kraz (scene, item and entity rendering): a sibling checkout's `:core:publishToMavenLocal` wins; otherwise GitHub
+    // Packages (team-froglight/kraz), with a read:packages token (gpr.user / gpr.key, or GITHUB_ACTOR / GITHUB_TOKEN).
+    exclusiveContent {
+        forRepositories(mavenLocal(), maven("https://maven.pkg.github.com/team-froglight/kraz") {
+            name = "Kraz"
+            credentials {
+                username = providers.gradleProperty("gpr.user").orElse(providers.environmentVariable("GITHUB_ACTOR")).getOrElse("")
+                password = providers.gradleProperty("gpr.key").orElse(providers.environmentVariable("GITHUB_TOKEN")).getOrElse("")
+            }
+        })
+        filter { includeModule("me.methodial", "kraz") }
+    }
     // JEC (development only), see the runtimeOnly dependency below.
     maven("https://gitlab.com/api/v4/projects/87129086/packages/maven") { name = "JEC" }
 }
@@ -59,6 +71,10 @@ dependencies {
     implementation(libs.jsvg)
     jarJar(libs.jsvg)
     "additionalRuntimeClasspath"(libs.jsvg)
+
+    // Kraz draws everything 3D: SceneView, ItemView, EntityView and the ShadedScene pipeline. Shipped inside the jar.
+    implementation("me.methodial:kraz:${prop("kraz_version")}")
+    jarJar("me.methodial:kraz:${prop("kraz_version")}")
 
     // JEC: an MCP for the running game (inspection, rendering, hot-swap) in runClient. runtimeOnly, never bundled.
     runtimeOnly(libs.jec.neoforge)

@@ -1,39 +1,20 @@
 package me.methodial.apothecary.mc.scene;
 
-import com.mojang.blaze3d.pipeline.TextureTarget;
-import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.platform.Lighting;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.BufferUploader;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexFormat;
-import com.mojang.blaze3d.vertex.VertexSorting;
-import me.methodial.apothecary.mc.render.GpuProfiler;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.resources.ResourceLocation;
 import org.joml.Matrix4f;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL30;
-import org.joml.Matrix4fStack;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
-import org.joml.Vector4f;
 
 /**
  * A little 3D world drawn the way a shader pack draws the game, into a rectangle of the GUI.
  *
- * <p>The scene draws itself with vanilla's renderers ({@link Content}), twice: once from the sun
- * into a shadow map, once from the camera. Then everything else is done in screen space from the
- * camera's colour and depth: positions and normals rebuilt from depth, soft sun shadows, ambient
- * occlusion, the overworld sky with the sun and moon, the stars and volumetric clouds, haze, volumetric light
- * through the shadow map, bloom, a filmic tonemap with colour grading, and FXAA. The sky, clouds,
- * light colours, tonemap, grading and FXAA follow Complementary Unbound's.
+ * <p>The pipeline itself (shadow map, screen-space lighting, sky and clouds, bloom, tonemap, FXAA) now lives in
+ * Kraz as {@link me.methodial.kraz.render.shaded.ShadedScene}; this class keeps Apothecary's API over it, so
+ * code written against it keeps working unchanged. New code that draws a Kraz scene can skip the {@link Content}
+ * callback altogether and use {@code SceneView.shaded()} or Kraz's {@code ShadedSceneCanvas}.
  *
  * <p>World units are blocks, y up. One instance per view; {@link #close()} frees its targets.
  */
@@ -47,9 +28,8 @@ public final class ShadedScene implements AutoCloseable {
         SCENE,
         /**
          * Only with {@link #materials}: water, lava and light-emitting surfaces again, as a mask, so they shade as what
-         * they are (Unbound's water, with waves, sky reflections and a glint of the sun; lava, glowing and stirring;
-         * lanterns and the like, their bright parts glowing). Draw them as in {@link #SCENE}, with blending off and the
-         * shader colour red for water, green for lava, blue for light; the depth is the scene's (tested, not written).
+         * they are. Draw them as in {@link #SCENE}, with blending off and the shader colour red for water, green for
+         * lava, blue for light; the depth is the scene's (tested, not written).
          */
         MATERIAL,
         /**
@@ -68,65 +48,16 @@ public final class ShadedScene implements AutoCloseable {
         void draw(PoseStack pose, MultiBufferSource.BufferSource buffers, Pass pass);
     }
 
-    /** Complementary's noise, for the volumetric clouds. */
-    private static final ResourceLocation NOISE = ResourceLocation.fromNamespaceAndPath("apothecary", "textures/scene/noise.png");
-    private static final ResourceLocation VANILLA_SUN = ResourceLocation.withDefaultNamespace("textures/environment/sun.png");
-    private static final ResourceLocation VANILLA_MOON = ResourceLocation.withDefaultNamespace("textures/environment/moon_phases.png");
-    private static final int BLOOM_LEVELS = 6;
+    private static final Pass[] PASSES = Pass.values();
 
-    // ------------------------------------------------------------------ settings
+    private final me.methodial.kraz.render.shaded.ShadedScene scene = new me.methodial.kraz.render.shaded.ShadedScene();
 
-    private final Vector3f target = new Vector3f();
-    private float yaw = -30f, pitch = 25f, distance = 10f, fov = 40f, far = 256f;
-    private final Vector3f sun = new Vector3f(0.3f, 0.6f, -0.75f).normalize();
-    private final Vector3f skyColor = new Vector3f(0.47f, 0.655f, 1.0f);
-    private ResourceLocation sunTexture = VANILLA_SUN;
-    private float sunSize = 0.3f;
-    private ResourceLocation moonTexture = VANILLA_MOON;
-    private int moonPhase;
-    private float time;
-    private float cloudHeight = 128f;
-    private float fogStart = 64f, fogEnd = 192f;
-    private final Vector3f shadowCenter = new Vector3f();
-    private float shadowRadius = 8f;
-    private int shadowSize = 1024;
-    private float resolution = 1f;
-    private float bloom = 0.1f;
-    private float shiftX, shiftY;
-    /** Frosted rectangles (GUI units, x y w h each), blurred behind panels drawn over the scene. */
-    private static final int MAX_FROST = 8;
-    private static final String[] FROST_UNIFORMS = new String[MAX_FROST];
-
-    static {
-        for (int i = 0; i < MAX_FROST; i++) FROST_UNIFORMS[i] = "Frost" + i;
-    }
-
-    private final float[] frosts = new float[MAX_FROST * 4];
-    private int frostCount;
-    /** Point lights (block light: lanterns, lava, glowstone...), x y z range / r g b intensity each. */
-    private static final int MAX_LIGHTS = 128;
-    private final float[] lights = new float[MAX_LIGHTS * 8];
-    private int lightCount;
-    private int lightTexture = -1;
-    private final java.nio.FloatBuffer lightData = org.lwjgl.BufferUtils.createFloatBuffer(MAX_LIGHTS * 8);
-    /** The volumetric clouds' scale against Unbound's: above 1 makes them smaller, for a little world. */
-    private float cloudScale = 1f;
-
-    /** Screen-camera mode: the caller's world-to-GUI transform, its eye, and the sky's look direction. */
-    private boolean screen;
-    private boolean materials;
-    private final Matrix4f worldToGui = new Matrix4f();
-    private final Vector3f screenEye = new Vector3f();
-    private float skyYaw, skyPitch;
+    /** The Kraz pipeline behind this scene. */
+    public me.methodial.kraz.render.shaded.ShadedScene kraz() { return scene; }
 
     /** Looks at {@code target} from {@code distance} away, turned {@code yaw} and tilted down {@code pitch} (degrees). */
     public ShadedScene camera(Vector3f target, float yaw, float pitch, float distance, float fov) {
-        this.screen = false;
-        this.target.set(target);
-        this.yaw = yaw;
-        this.pitch = pitch;
-        this.distance = distance;
-        this.fov = fov;
+        scene.camera(target, yaw, pitch, distance, fov);
         return this;
     }
 
@@ -137,556 +68,129 @@ public final class ShadedScene implements AutoCloseable {
      * {@code skyPitch} (degrees) through a perspective lens, so it keeps its gradient.
      */
     public ShadedScene screenCamera(Matrix4f worldToGui, Vector3f eye, float skyYaw, float skyPitch) {
-        this.screen = true;
-        this.worldToGui.set(worldToGui);
-        this.screenEye.set(eye);
-        this.skyYaw = skyYaw;
-        this.skyPitch = skyPitch;
+        scene.screenCamera(worldToGui, eye, skyYaw, skyPitch);
         return this;
     }
 
-    /**
-     * Slides the picture across its rectangle without turning the camera (an off-axis lens), in
-     * clip units: {@code x = 0.3} puts what the camera looks at 15% right of center.
-     */
+    /** Slides the picture across its rectangle without turning the camera, in clip units. */
     public ShadedScene shift(float x, float y) {
-        shiftX = x;
-        shiftY = y;
+        scene.shift(x, y);
         return this;
     }
 
-    /**
-     * Frosts the rectangle {@code (x, y, w, h)} (GUI units) of the scene: blurred there, for a translucent panel
-     * drawn over it. It costs nothing: the bloom pyramid is that blur already. {@code w = 0} clears it.
-     */
+    /** Frosts the rectangle {@code (x, y, w, h)} (GUI units) of the scene, for a translucent panel over it. {@code w = 0} clears it. */
     public ShadedScene frost(float x, float y, float w, float h) {
-        clearFrost();
-        return w > 0f && h > 0f ? addFrost(x, y, w, h) : this;
+        scene.frost(x, y, w, h);
+        return this;
     }
 
     /** No frosted rectangles. */
     public ShadedScene clearFrost() {
-        frostCount = 0;
+        scene.clearFrost();
         return this;
     }
 
-    /** One more frosted rectangle (up to eight; more are ignored), for a screen with several panels. */
+    /** One more frosted rectangle (up to eight; more are ignored). */
     public ShadedScene addFrost(float x, float y, float w, float h) {
-        if (frostCount == MAX_FROST || w <= 0f || h <= 0f) return this;
-        frosts[frostCount * 4] = x;
-        frosts[frostCount * 4 + 1] = y;
-        frosts[frostCount * 4 + 2] = w;
-        frosts[frostCount * 4 + 3] = h;
-        frostCount++;
+        scene.addFrost(x, y, w, h);
         return this;
     }
 
     /** The direction toward the sun, in world terms. */
     public ShadedScene sun(Vector3f towardSun) {
-        sun.set(towardSun).normalize();
+        scene.sun(towardSun);
         return this;
     }
 
-    /** Vanilla's sky colour for the place and time (the biome's, darkened toward night). */
+    /** Vanilla's sky colour for the place and time. */
     public ShadedScene skyColor(float r, float g, float b) {
-        skyColor.set(r, g, b);
+        scene.skyColor(r, g, b);
         return this;
     }
 
-    /** The sun's picture, drawn added on as vanilla draws {@code sun.png}, {@code size} its half-width as a tangent. */
+    /** The sun's picture, {@code size} its half-width as a tangent. */
     public ShadedScene sunTexture(ResourceLocation texture, float size) {
-        sunTexture = texture;
-        sunSize = size;
+        scene.sunTexture(texture, size);
         return this;
     }
 
-    /** The moon's phases, a 4 by 2 sheet as vanilla's {@code moon_phases.png}, and which one shows (0 full, 4 new). */
+    /** The moon's phases, a 4 by 2 sheet, and which one shows (0 full, 4 new). */
     public ShadedScene moon(ResourceLocation phases, int phase) {
-        moonTexture = phases;
-        moonPhase = Math.floorMod(phase, 8);
+        scene.moon(phases, phase);
         return this;
     }
 
     /** Seconds, for the clouds' drift. */
     public ShadedScene time(float seconds) {
-        time = seconds;
+        scene.time(seconds);
         return this;
     }
 
-    /** The cloud layer's height, in world y; {@code Float.NaN} for none (the caller draws its own). */
+    /** The cloud layer's height, in world y; {@code Float.NaN} for none. */
     public ShadedScene clouds(float height) {
-        cloudHeight = height;
+        scene.clouds(height);
         return this;
     }
 
-    /** Whether the content draws water, lava and light in {@link Pass#MATERIAL}, so they shade as what they are. */
+    /** Whether the content draws water, lava and light in {@link Pass#MATERIAL}. */
     public ShadedScene materials(boolean on) {
-        materials = on;
+        scene.materials(on);
         return this;
     }
 
-    /** The clouds smaller by {@code scale} (Unbound's are kilometres across; a map of floating islands wants tens of blocks). */
+    /** The clouds smaller by {@code scale}. */
     public ShadedScene cloudScale(float scale) {
-        cloudScale = Math.max(1e-3f, scale);
+        scene.cloudScale(scale);
         return this;
     }
 
     /** No point lights. */
     public ShadedScene clearLights() {
-        lightCount = 0;
+        scene.clearLights();
         return this;
     }
 
-    /**
-     * A point of block light at {@code (x, y, z)} reaching {@code range} blocks, in colour {@code (r, g, b)} (above 1
-     * for brighter): lit surfaces near it pick it up in the lighting pass, as a shader pack's block light. Up to 128.
-     */
+    /** A point of block light at {@code (x, y, z)} reaching {@code range} blocks, in colour {@code (r, g, b)}. Up to 128. */
     public ShadedScene addLight(float x, float y, float z, float range, float r, float g, float b) {
-        if (lightCount == MAX_LIGHTS) return this;
-        int i = lightCount++ * 8;
-        lights[i] = x;
-        lights[i + 1] = y;
-        lights[i + 2] = z;
-        lights[i + 3] = range;
-        lights[i + 4] = r;
-        lights[i + 5] = g;
-        lights[i + 6] = b;
-        lights[i + 7] = 1f;
+        scene.addLight(x, y, z, range, r, g, b);
         return this;
     }
 
     /** Where haze starts and where it has swallowed everything, in blocks from the camera; and the far plane. */
     public ShadedScene fog(float start, float end, float far) {
-        fogStart = start;
-        fogEnd = end;
-        this.far = far;
+        scene.fog(start, end, far);
         return this;
     }
 
     /** The part of the world that casts and catches shadows: a sphere. */
     public ShadedScene shadows(Vector3f center, float radius, int mapSize) {
-        shadowCenter.set(center);
-        shadowRadius = radius;
-        shadowSize = mapSize;
+        scene.shadows(center, radius, mapSize);
         return this;
     }
 
     /** Render scale against the GUI rectangle's real pixels: 1 is one to one, above 1 supersamples (up to 2). */
     public ShadedScene resolution(float scale) {
-        resolution = Math.max(0.25f, Math.min(2f, scale));
+        scene.resolution(scale);
         return this;
     }
 
     /** How much bloom the final mix takes, 0..1. */
     public ShadedScene bloom(float strength) {
-        bloom = strength;
+        scene.bloom(strength);
         return this;
     }
 
-    // ------------------------------------------------------------------ state
-
-    private TextureTarget scene, shadow;
-    private final FloatTarget hdr = new FloatTarget(), ldr = new FloatTarget(), material = new FloatTarget();
-    /** Clouds and light shafts, at half the resolution each way: both soft, so a quarter of the pixels do. */
-    private final FloatTarget cloudTarget = new FloatTarget(), shaftTarget = new FloatTarget();
-    private final FloatTarget[] blooms = new FloatTarget[BLOOM_LEVELS];
-    private final Matrix4f view = new Matrix4f(), proj = new Matrix4f(), viewProj = new Matrix4f(), inverse = new Matrix4f();
-    private final Matrix4f shadowView = new Matrix4f(), shadowProj = new Matrix4f(), shadowMat = new Matrix4f();
-    private final Matrix4f savedProj = new Matrix4f(), guiView = new Matrix4f();
-    private final Matrix4f skyProj = new Matrix4f(), skyInverse = new Matrix4f();
-    /** Half a block in pixels: at the camera (orthographic) or divided by distance (perspective). */
-    private float aoScale;
-    private final Matrix4f turn = new Matrix4f();
-    private final Vector3f eye = new Vector3f(), scratch = new Vector3f(), from = new Vector3f(), up = new Vector3f(), light = new Vector3f();
-    /** The direction the shadow map is cast along: the light, in steps. */
-    private final Vector3f shadowLight = new Vector3f();
-    private final Vector4f clip = new Vector4f();
-    private final PoseStack pose = new PoseStack();
-    private float gx, gy, gw, gh;
-
-    {
-        for (int i = 0; i < BLOOM_LEVELS; i++) blooms[i] = new FloatTarget();
-    }
-
-    // ------------------------------------------------------------------ rendering
-
     /** Draws the scene into the GUI rectangle {@code (x, y, w, h)}, in GUI units, on {@code g}'s pose. */
     public void render(GuiGraphics g, float x, float y, float w, float h, Content content) {
-        if (!SceneShaders.ready() || w < 1 || h < 1) return;
-        Minecraft mc = Minecraft.getInstance();
-        RenderSystem.assertOnRenderThread();
-        // for GpuProfiler: each pass's time, under the screen drawing the scene (named only when anyone is looking)
-        String scope = GpuProfiler.enabled() ? "scene " + (mc.screen == null ? "?" : mc.screen.getClass().getSimpleName()) : null;
-        GpuProfiler.mark(scope, "start");
-        gx = x;
-        gy = y;
-        gw = w;
-        gh = h;
-        double scale = mc.getWindow().getGuiScale() * resolution;
-        int pw = Math.max(1, (int) Math.round(w * scale)), ph = Math.max(1, (int) Math.round(h * scale));
-        allocate(pw, ph);
-        savedProj.set(RenderSystem.getProjectionMatrix());
-        guiView.set(RenderSystem.getModelViewMatrix());
-        matrices(w / h, (float) scale);
-
-        MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
-        buffers.endBatch();
-        VertexSorting savedSorting = RenderSystem.getVertexSorting();
-        Matrix4fStack modelView = RenderSystem.getModelViewStack();
-        modelView.pushMatrix();
-        boolean drawn = false;
-        try {
-            RenderSystem.enableDepthTest();
-            RenderSystem.depthMask(true);
-
-            // the sun's view: only depth matters
-            shadow.setClearColor(1f, 1f, 1f, 1f);
-            shadow.clear(Minecraft.ON_OSX);
-            shadow.bindWrite(true);
-            RenderSystem.setProjectionMatrix(shadowProj, VertexSorting.ORTHOGRAPHIC_Z);
-            modelView.identity().mul(shadowView);
-            RenderSystem.applyModelViewMatrix();
-            content.draw(pose, buffers, Pass.SHADOW);
-            buffers.endBatch();
-            GpuProfiler.mark(scope, "shadow");
-
-            // the camera's view, in the surfaces' own colours
-            scene.setClearColor(0f, 0f, 0f, 0f);
-            scene.clear(Minecraft.ON_OSX);
-            scene.bindWrite(true);
-            cameraMatrices(modelView);
-            Lighting.setupLevel();
-            content.draw(pose, buffers, Pass.SCENE);
-            buffers.endBatch();
-            GpuProfiler.mark(scope, "scene");
-
-            // the materials' mask, over the surfaces they cover
-            material.bindWithDepth(scene.getDepthTextureId());
-            GlStateManager._clearColor(0f, 0f, 0f, 0f);
-            GlStateManager._clear(GL11.GL_COLOR_BUFFER_BIT, Minecraft.ON_OSX);
-            if (materials) {
-                RenderSystem.depthMask(false);
-                RenderSystem.depthFunc(GL11.GL_LEQUAL);
-                RenderSystem.disableBlend();
-                content.draw(pose, buffers, Pass.MATERIAL);
-                buffers.endBatch();
-                RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-                RenderSystem.depthMask(true);
-            }
-            material.bindWithDepth(0);
-            GpuProfiler.mark(scope, "materials");
-            Lighting.setupFor3DItems();
-
-            RenderSystem.disableDepthTest();
-            RenderSystem.depthMask(false);
-            RenderSystem.disableBlend();
-            uploadLights();
-            volumetrics();
-            GpuProfiler.mark(scope, "volumetrics");
-            composite();
-            GpuProfiler.mark(scope, "composite");
-
-            // light that needs no lighting, onto the lit picture, behind whatever stands in front of it
-            hdr.bindWithDepth(scene.getDepthTextureId());
-            cameraMatrices(modelView);
-            RenderSystem.enableDepthTest();
-            RenderSystem.depthMask(false);
-            RenderSystem.enableBlend();
-            // light adds up; the alpha (where the picture wants blurring) is left as the composite wrote it
-            RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ONE,
-                    GlStateManager.SourceFactor.ZERO, GlStateManager.DestFactor.ONE);
-            content.draw(pose, buffers, Pass.GLOW);
-            buffers.endBatch();
-            GpuProfiler.mark(scope, "glow");
-            RenderSystem.defaultBlendFunc();
-            RenderSystem.disableBlend();
-            RenderSystem.disableDepthTest();
-            hdr.bindWithDepth(0);
-
-            bloomPyramid();
-            GpuProfiler.mark(scope, "bloom");
-            grade();
-            GpuProfiler.mark(scope, "grade");
-            drawn = true;
-        } finally {
-            if (!drawn) {
-                // A pass threw: put back what the passes change, so the screen (and the rest of the frame) draws as it
-                // would have without the scene, rather than into one of its targets with its matrices.
-                material.bindWithDepth(0);
-                hdr.bindWithDepth(0);
-                RenderSystem.defaultBlendFunc();
-                RenderSystem.disableBlend();
-                RenderSystem.depthFunc(GL11.GL_LEQUAL);
-                RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-                Lighting.setupFor3DItems();
-                RenderSystem.enableDepthTest();
-                RenderSystem.depthMask(true);
-            }
-            // back onto the screen
-            mc.getMainRenderTarget().bindWrite(true);
-            RenderSystem.setProjectionMatrix(savedProj, savedSorting);
-            modelView.popMatrix();
-            RenderSystem.applyModelViewMatrix();
-        }
-        // into the rectangle
-        present(g);
-        GpuProfiler.mark(scope, "present");
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthMask(true);
+        scene.render(g, x, y, w, h, (pose, buffers, pass) -> content.draw(pose, buffers, PASSES[pass.ordinal()]));
     }
 
-    private void allocate(int pw, int ph) {
-        if (scene == null) scene = new TextureTarget(pw, ph, true, Minecraft.ON_OSX);
-        else if (scene.width != pw || scene.height != ph) scene.resize(pw, ph, Minecraft.ON_OSX);
-        if (shadow == null) shadow = new TextureTarget(shadowSize, shadowSize, true, Minecraft.ON_OSX);
-        else if (shadow.width != shadowSize) shadow.resize(shadowSize, shadowSize, Minecraft.ON_OSX);
-        hdr.resize(pw, ph);
-        material.resize(pw, ph);
-        cloudTarget.resize((pw + 1) / 2, (ph + 1) / 2);
-        shaftTarget.resize((pw + 1) / 2, (ph + 1) / 2);
-        ldr.resize(pw, ph);
-        int bw = pw, bh = ph;
-        for (FloatTarget b : blooms) {
-            bw = Math.max(1, bw / 2);
-            bh = Math.max(1, bh / 2);
-            b.resize(bw, bh);
-        }
-    }
-
-    /** The camera's projection and model-view for the scene and glow passes. */
-    private void cameraMatrices(Matrix4fStack modelView) {
-        if (screen) {
-            RenderSystem.setProjectionMatrix(proj, VertexSorting.ORTHOGRAPHIC_Z);
-            modelView.set(guiView);
-        } else {
-            RenderSystem.setProjectionMatrix(proj, VertexSorting.DISTANCE_TO_ORIGIN);
-            modelView.identity().mul(view);
-        }
-        RenderSystem.applyModelViewMatrix();
-    }
-
-    private void matrices(float aspect, float pixelsPerGui) {
-        if (screen) {
-            // the caller's own screen projection, narrowed to the rectangle so the rectangle fills the target
-            Vector3f a = savedProj.transformProject(gx, gy, 0f, new Vector3f());
-            Vector3f b = savedProj.transformProject(gx + gw, gy + gh, 0f, new Vector3f());
-            proj.identity().scale(2f / (b.x - a.x), 2f / (a.y - b.y), 1f)
-                    .translate(-(a.x + b.x) / 2f, -(a.y + b.y) / 2f, 0f).mul(savedProj);
-            proj.mul(guiView, viewProj).mul(worldToGui);
-            eye.set(screenEye);
-            view.identity().rotateX((float) Math.toRadians(skyPitch)).rotateY((float) Math.toRadians(skyYaw));
-            skyProj.setPerspective((float) Math.toRadians(70f), aspect, 0.05f, far).mul(view, skyInverse).invert();
-            // an orthographic view: a block is the same size everywhere, this many pixels
-            aoScale = worldToGui.getScale(scratch).x * pixelsPerGui * 0.5f;
-        } else {
-            // camera: orbit the target
-            view.identity().rotateX((float) Math.toRadians(pitch)).rotateY((float) Math.toRadians(yaw));
-            proj.translation(shiftX, shiftY, 0f).perspective((float) Math.toRadians(fov), aspect, 0.05f, far);
-            proj.mul(view, skyInverse).invert();
-            view.invert(turn);
-            turn.transformDirection(scratch.set(0f, 0f, 1f));
-            eye.set(target).fma(distance, scratch);
-            view.translate(-eye.x, -eye.y, -eye.z);
-            proj.mul(view, viewProj);
-            aoScale = 0.5f * proj.m11() * 0.5f * gh * pixelsPerGui;
-        }
-        viewProj.invert(inverse);
-
-        // the sun (the moon by night): an orthographic box around the shadow sphere, looking along the light
-        light.set(sun);
-        if (light.y < 0f) light.negate();
-        // A light that turns a hair every frame makes every shadow edge crawl: follow it in half-degree steps.
-        if (shadowLight.lengthSquared() == 0f || shadowLight.dot(light) < 0.99996f) shadowLight.set(light);
-        from.set(shadowCenter).fma(shadowRadius * 2f, shadowLight);
-        if (Math.abs(shadowLight.y) > 0.99f) up.set(0f, 0f, 1f); else up.set(0f, 1f, 0f);
-        shadowView.setLookAt(from, shadowCenter, up);
-        // ...and keep the map's texels on a grid fixed to the world, so they don't swim as anything moves.
-        float texel = 2f * shadowRadius / shadowSize;
-        Vector3f c = shadowView.transformPosition(shadowCenter, scratch);
-        shadowView.translateLocal((float) Math.floor(c.x / texel) * texel - c.x, (float) Math.floor(c.y / texel) * texel - c.y, 0f);
-        shadowProj.setOrtho(-shadowRadius, shadowRadius, -shadowRadius, shadowRadius, 0.05f, shadowRadius * 4f);
-        shadowProj.mul(shadowView, shadowMat);
-    }
-
-    /** The clouds and the light shafts, each into its half-size target, for {@link #composite} to blend up. */
-    private void volumetrics() {
-        ShaderInstance s = compositeInputs();
-        s.safeGetUniform("Mode").set(1f);
-        cloudTarget.bind();
-        blit(s);
-        s.safeGetUniform("Mode").set(2f);
-        shaftTarget.bind();
-        blit(s);
-    }
-
-    private void composite() {
-        ShaderInstance s = compositeInputs();
-        s.safeGetUniform("Mode").set(0f);
-        RenderSystem.setShaderTexture(8, cloudTarget.texture());
-        RenderSystem.setShaderTexture(9, shaftTarget.texture());
-        hdr.bind();
-        blit(s);
-    }
-
-    /** The composite shader with every input of the lighting set: matrices, sun and sky, and its textures. */
-    private ShaderInstance compositeInputs() {
-        ShaderInstance s = SceneShaders.composite;
-        s.safeGetUniform("InvViewProj").set(inverse);
-        s.safeGetUniform("SkyInvViewProj").set(skyInverse);
-        s.safeGetUniform("AoScale").set(aoScale);
-        s.safeGetUniform("Ortho").set(screen ? 1f : 0f);
-        s.safeGetUniform("ShadowCenter").set(shadowCenter.x, shadowCenter.y, shadowCenter.z);
-        s.safeGetUniform("ShadowMat").set(shadowMat);
-        s.safeGetUniform("CameraPos").set(eye.x, eye.y, eye.z);
-        s.safeGetUniform("SunDir").set(sun.x, sun.y, sun.z);
-        s.safeGetUniform("SkyColor").set(skyColor.x, skyColor.y, skyColor.z);
-        s.safeGetUniform("ScreenSize").set((float) hdr.width, (float) hdr.height);
-        s.safeGetUniform("Time").set(time);
-        s.safeGetUniform("SunSize").set(sunSize);
-        s.safeGetUniform("CloudHeight").set(Float.isNaN(cloudHeight) ? -1e9f : cloudHeight);
-        s.safeGetUniform("Fog").set(fogStart, fogEnd);
-        s.safeGetUniform("ShadowInfo").set((float) shadowSize, shadowRadius * 4f);
-        s.safeGetUniform("MoonPhase").set((float) moonPhase);
-        RenderSystem.setShaderTexture(0, scene.getColorTextureId());
-        RenderSystem.setShaderTexture(1, scene.getDepthTextureId());
-        RenderSystem.setShaderTexture(2, shadow.getDepthTextureId());
-        RenderSystem.setShaderTexture(3, NOISE);
-        RenderSystem.setShaderTexture(4, sunTexture);
-        RenderSystem.setShaderTexture(5, moonTexture);
-        s.safeGetUniform("LightCount").set((float) lightCount);
-        s.safeGetUniform("CloudScale").set(cloudScale);
-        RenderSystem.setShaderTexture(6, lightTexture);
-        RenderSystem.setShaderTexture(7, material.texture());
-        return s;
-    }
-
-    /**
-     * The point lights as a 2-by-128 float texture: position and range, then colour, one row each. Uploaded once per
-     * render, before the passes that read it; the texture's storage is made once.
-     */
-    private void uploadLights() {
-        if (lightTexture < 0) {
-            lightTexture = GlStateManager._genTexture();
-            GlStateManager._bindTexture(lightTexture);
-            GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
-            GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
-            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_RGBA32F, 2, MAX_LIGHTS, 0, GL11.GL_RGBA, GL11.GL_FLOAT, (java.nio.FloatBuffer) null);
-        }
-        lightData.clear();
-        lightData.put(lights, 0, MAX_LIGHTS * 8).flip();
-        GlStateManager._bindTexture(lightTexture);
-        // Texture animations (lava, lanterns, portals) leave the unpack state set to read a sub-rectangle of their
-        // frames: left as it is, the lights would be read from the wrong places on the frames after one.
-        GlStateManager._pixelStore(GL11.GL_UNPACK_ROW_LENGTH, 0);
-        GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
-        GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
-        GlStateManager._pixelStore(GL11.GL_UNPACK_ALIGNMENT, 4);
-        GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 2, MAX_LIGHTS, GL11.GL_RGBA, GL11.GL_FLOAT, lightData);
-        GlStateManager._bindTexture(0);
-    }
-
-    /** Down the mip chain with a 13-tap filter, then back up with a tent, adding as it goes. */
-    private void bloomPyramid() {
-        int src = hdr.texture();
-        int sw = hdr.width, sh = hdr.height;
-        ShaderInstance down = SceneShaders.bloomDown;
-        for (FloatTarget b : blooms) {
-            b.bind();
-            down.safeGetUniform("TexelSize").set(1f / sw, 1f / sh);
-            RenderSystem.setShaderTexture(0, src);
-            blit(down);
-            src = b.texture();
-            sw = b.width;
-            sh = b.height;
-        }
-        ShaderInstance up = SceneShaders.bloomUp;
-        RenderSystem.enableBlend();
-        RenderSystem.blendFunc(GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ONE);
-        for (int i = BLOOM_LEVELS - 2; i >= 0; i--) {
-            FloatTarget from = blooms[i + 1];
-            blooms[i].bind();
-            up.safeGetUniform("TexelSize").set(1f / from.width, 1f / from.height);
-            RenderSystem.setShaderTexture(0, from.texture());
-            blit(up);
-        }
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.disableBlend();
-    }
-
-    /** Bloom in, the tonemap and grading: the picture as it will look, before antialiasing. */
-    private void grade() {
-        ShaderInstance s = SceneShaders.grade;
-        ldr.bind();
-        s.safeGetUniform("Bloom").set(bloom);
-        for (int i = 0; i < MAX_FROST; i++) {
-            if (i < frostCount) {
-                // in the scene's texture coordinates, v up
-                float fx = frosts[i * 4], fy = frosts[i * 4 + 1], fw = frosts[i * 4 + 2], fh = frosts[i * 4 + 3];
-                s.safeGetUniform(FROST_UNIFORMS[i]).set((fx - gx) / gw, 1f - (fy + fh - gy) / gh, (fx + fw - gx) / gw, 1f - (fy - gy) / gh);
-            } else {
-                s.safeGetUniform(FROST_UNIFORMS[i]).set(0f, 0f, 0f, 0f);
-            }
-        }
-        RenderSystem.setShaderTexture(0, hdr.texture());
-        RenderSystem.setShaderTexture(1, blooms[0].texture());
-        blit(s);
-    }
-
-    /** FXAA on the way onto the screen (and the downsample, when supersampled). */
-    private void present(GuiGraphics g) {
-        ShaderInstance s = SceneShaders.present;
-        s.safeGetUniform("TexelSize").set(1f / ldr.width, 1f / ldr.height);
-        RenderSystem.setShaderTexture(0, ldr.texture());
-        RenderSystem.setShader(() -> s);
-        Matrix4f m = g.pose().last().pose();
-        BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
-        b.addVertex(m, gx, gy, 0f).setUv(0f, 1f);
-        b.addVertex(m, gx, gy + gh, 0f).setUv(0f, 0f);
-        b.addVertex(m, gx + gw, gy + gh, 0f).setUv(1f, 0f);
-        b.addVertex(m, gx + gw, gy, 0f).setUv(1f, 1f);
-        BufferUploader.drawWithShader(b.buildOrThrow());
-    }
-
-    /** A full-target quad: the pass's vertex shader takes positions as they are. */
-    private static void blit(ShaderInstance s) {
-        RenderSystem.setShader(() -> s);
-        BufferBuilder b = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
-        b.addVertex(-1f, -1f, 0f).setUv(0f, 0f);
-        b.addVertex(1f, -1f, 0f).setUv(1f, 0f);
-        b.addVertex(1f, 1f, 0f).setUv(1f, 1f);
-        b.addVertex(-1f, 1f, 0f).setUv(0f, 1f);
-        BufferUploader.drawWithShader(b.buildOrThrow());
-    }
-
-    // ------------------------------------------------------------------ helpers
-
-    /**
-     * Where a world point lands on the GUI, as of the last render; false when it's behind the
-     * camera. For labels drawn over the scene, like a name tag.
-     */
-    public boolean project(Vector3f world, Vector2f gui) {
-        viewProj.transform(clip.set(world, 1f));
-        if (clip.w <= 0f) return false;
-        float nx = clip.x / clip.w, ny = clip.y / clip.w;
-        gui.set(gx + (nx * 0.5f + 0.5f) * gw, gy + (0.5f - ny * 0.5f) * gh);
-        return true;
-    }
+    /** Where a world point lands on the GUI, as of the last render; false when it's behind the camera. */
+    public boolean project(Vector3f world, Vector2f gui) { return scene.project(world, gui); }
 
     /** The camera's position, as of the last render. */
-    public Vector3f eye() { return eye; }
+    public Vector3f eye() { return scene.eye(); }
 
     @Override
-    public void close() {
-        if (scene != null) scene.destroyBuffers();
-        if (shadow != null) shadow.destroyBuffers();
-        scene = shadow = null;
-        hdr.release();
-        ldr.release();
-        material.release();
-        cloudTarget.release();
-        shaftTarget.release();
-        if (lightTexture >= 0) GlStateManager._deleteTexture(lightTexture);
-        lightTexture = -1;
-        for (FloatTarget b : blooms) b.release();
-    }
+    public void close() { scene.close(); }
 }

@@ -3,7 +3,6 @@ package me.methodial.apothecary.mc;
 import com.mojang.blaze3d.platform.InputConstants;
 import me.methodial.apothecary.mc.render.ApothecaryShaders;
 import me.methodial.apothecary.mc.render.GpuProfiler;
-import me.methodial.apothecary.mc.scene.SceneShaders;
 import me.methodial.apothecary.mc.showcase.ShowcaseScreen;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -41,7 +40,11 @@ public final class ApothecaryMod {
 
     public ApothecaryMod(IEventBus modBus) {
         modBus.addListener(RegisterShadersEvent.class, ApothecaryShaders::onRegisterShaders);
-        modBus.addListener(RegisterShadersEvent.class, SceneShaders::onRegisterShaders);
+        // Shaded scenes are drawn by Kraz; its pass timings show up in our GPU profiler like before.
+        me.methodial.kraz.render.shaded.ShadedScene.profiler = new me.methodial.kraz.render.shaded.ShadedScene.Profiler() {
+            @Override public boolean enabled() { return GpuProfiler.enabled(); }
+            @Override public void mark(String scope, String pass) { GpuProfiler.mark(scope, pass); }
+        };
         // fonts are cached per resource set: drop them when resource packs reload
         modBus.addListener(RegisterClientReloadListenersEvent.class, e -> e.registerReloadListener(
                 (net.minecraft.server.packs.resources.ResourceManagerReloadListener) rm -> me.methodial.apothecary.mc.render.McFonts.INSTANCE.invalidate()));

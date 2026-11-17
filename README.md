@@ -26,6 +26,16 @@ closes. Focus survives a `Region` rebuild. A dialog drawn in the content marked 
 keeps it inside and gives it back when it closes. `UIScreen` tells Minecraft's narrator what focus lands on,
 using `accessibleName` (given, or the element's text, or its tooltip).
 
+## Items, entities and scenes
+
+All 3D drawing is done by [Kraz](../Kraz), shipped inside the jar:
+
+- `ItemView` draws a stack antialiased at any size and under any style transform (rotation included), lit like an
+  inventory slot. Items that are not enchanted render once and are then reused as an image.
+- `EntityView` is the paper-doll, looking at the cursor; it now follows transforms and clipping like any node.
+- `SceneView` shows a whole Kraz `Scene` (blocks, block entities, posed entities, animation). `.interactive()` lets
+  the user orbit, pan and zoom; `.shaded()` draws it through the shader pipeline below.
+
 ## Shaded scenes
 
 `ShadedScene` (NeoForge module) draws a little 3D world into a rectangle of the GUI the way a shader pack draws the
@@ -37,12 +47,16 @@ like), and with `materials(true)` the content draws its water, lava and light-em
 (`Pass.MATERIAL`) so they shade as Unbound's do: waves, sky reflections and a sun glint on water, stirring lava, and
 light sources glowing from their bright parts.
 
+The pipeline now lives in Kraz (`me.methodial.kraz.render.shaded.ShadedScene`); this class keeps the same API over
+it, so existing callers are unchanged. To draw a Kraz scene this way there is no `Content` to write: use
+`new SceneView(scene).shaded()`.
+
 ## Modules
 
 | Module | What it is |
 | --- | --- |
 | `core` | Plain Java, no Minecraft: nodes, layout, style sheets, themes, animation, widgets. Reusable on any loader or game version. |
-| `neoforge` | The NeoForge 1.21.1 backend (rendering, text, input, `UIScreen`) and the showcase. |
+| `neoforge` | The NeoForge 1.21.1 backend (rendering, text, input, `UIScreen`) and the showcase. Depends on Kraz (`me.methodial:kraz`), carried inside the jar. |
 
 ## Using it
 
@@ -74,6 +88,10 @@ Java 21.
 ./gradlew :neoforge:runClient   # the showcase: /apothecary
 ./gradlew publishToMavenLocal   # for a sibling mod checkout, without GitHub credentials
 ```
+
+Kraz is resolved from Maven local: in a `../Kraz` checkout, run `./gradlew :core:publishToMavenLocal` first. The
+version is `kraz_version` in `gradle.properties`. CI needs Kraz published somewhere it can reach before it can
+build this.
 
 GitHub Actions builds every push to `main` and every pull request (`.github/workflows/ci.yml`) and attaches the jar
 to the run. To release, bump `mod_version` in `gradle.properties` and run the **Publish** workflow; GitHub Packages

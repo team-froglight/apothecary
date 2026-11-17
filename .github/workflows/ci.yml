@@ -12,6 +12,7 @@ concurrency:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   build:
@@ -28,6 +29,9 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew build --stacktrace
+        env:
+          # Kraz comes from GitHub Packages.
+          GITHUB_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN || github.token }}
       - name: Upload jars
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
